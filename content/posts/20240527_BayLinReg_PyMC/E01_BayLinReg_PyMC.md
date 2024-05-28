@@ -259,12 +259,13 @@ $$y \sim \mathcal{N}(\alpha + \beta \mathbf{X}, \sigma^2)$$
 
 Since we want to _infer_ the posterior distribution of the parameters $\theta = \{\alpha, \beta, \sigma \}$, we need to assign priors to those variables. Remember that $\sigma$ is a measure of the uncertainty in _the model_.
 
+$$
 \begin{align*}
-\alpha &\sim \mathcal{N}(0,10) \\
-\beta &\sim \mathcal{N}(0,1) \\
+\alpha &\sim \mathcal{N}(0,10) \\\\
+\beta &\sim \mathcal{N}(0,1) \\\\
 \sigma &\sim \mathcal{TN}(0,100; 0, \infty)
 \end{align*}
-
+$$
 The last distribution is a _truncated normal distribution_ bounded from 0 to $\infty$. 
 
 **Note**: Here, we define the input data `height` as a `MutableData` container. The reason for this is because, later, we will want to change this input data, to make predictions. This will become clear a bit later.
