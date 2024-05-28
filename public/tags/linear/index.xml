@@ -211,12 +211,14 @@
 <p>First, we assume that the weight is a variable dependent on the height. Thus, we can express the Bayesian model as:</p>
 <p>$$y \sim \mathcal{N}(\alpha + \beta \mathbf{X}, \sigma^2)$$</p>
 <p>Since we want to <em>infer</em> the posterior distribution of the parameters $\theta = {\alpha, \beta, \sigma }$, we need to assign priors to those variables. Remember that $\sigma$ is a measure of the uncertainty in <em>the model</em>.</p>
-<p>\begin{align*}
-\alpha &amp;\sim \mathcal{N}(0,10) \
-\beta &amp;\sim \mathcal{N}(0,1) \
+<p>$$
+\begin{align*}
+\alpha &amp;\sim \mathcal{N}(0,10) \\
+\beta &amp;\sim \mathcal{N}(0,1) \\
 \sigma &amp;\sim \mathcal{TN}(0,100; 0, \infty)
-\end{align*}</p>
-<p>The last distribution is a <em>truncated normal distribution</em> bounded from 0 to $\infty$.</p>
+\end{align*}
+$$
+The last distribution is a <em>truncated normal distribution</em> bounded from 0 to $\infty$.</p>
 <p><strong>Note</strong>: Here, we define the input data <code>height</code> as a <code>MutableData</code> container. The reason for this is because, later, we will want to change this input data, to make predictions. This will become clear a bit later.</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">with</span> <span class="n">pm</span><span class="o">.</span><span class="n">Model</span><span class="p">()</span> <span class="k">as</span> <span class="n">blr_model</span><span class="p">:</span>
 </span></span><span class="line"><span class="cl">
