@@ -3,7 +3,7 @@ title = 'Bayesian Poisson Regression with Julia and Turing.jl'
 date = 2024-02-17T11:57:07+08:00
 draft = false
 summary = "Explore Bayesian Poisson regression for modeling count data with Julia and Turing.jl. This tutorial includes model setup, implementation, and performance assessment with a practical example."
-tags = ["Bayesian", "Poisson", "Regression", "Turing", "Julia"]
+tags = ["Bayesian", "Bayesian Regression", "Poisson", "Regression", "Turing", "Julia"]
 +++
 ---
 

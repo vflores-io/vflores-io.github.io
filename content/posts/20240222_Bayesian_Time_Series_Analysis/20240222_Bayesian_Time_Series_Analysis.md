@@ -3,7 +3,7 @@ title = 'Bayesian Time Series Analysis with Julia and Turing.jl'
 date = 2024-03-02T16:57:07+08:00
 draft = false
 summary = "This tutorial covers the fundamentals of Bayesian approaches to time series, model construction, and practical implementation, using real-world data for hands-on learning."
-tags = ["Bayesian", "Time Series", "Regression", "Turing", "Julia"]
+tags = ["Bayesian", "Bayesian Regression", "Time Series", "Regression", "Turing", "Julia"]
 +++
 ---
 

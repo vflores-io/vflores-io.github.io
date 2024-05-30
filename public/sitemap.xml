@@ -8,10 +8,13 @@
     <loc>http://localhost:1313/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</loc>
     <lastmod>2024-05-27T16:57:31+08:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/linear/</loc>
+    <loc>http://localhost:1313/tags/bayesian-regression/</loc>
     <lastmod>2024-05-27T16:57:31+08:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/posts/</loc>
+    <lastmod>2024-05-27T16:57:31+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/predictions/</loc>
     <lastmod>2024-05-27T16:57:31+08:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/tags/predictive-posterior/</loc>
@@ -97,6 +100,9 @@
   </url><url>
     <loc>http://localhost:1313/tags/logistic/</loc>
     <lastmod>2024-01-09T11:57:07+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/bayesian-linear-regression/</loc>
+    <lastmod>2023-11-10T14:53:29+08:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</loc>
     <lastmod>2023-11-10T14:53:29+08:00</lastmod>

@@ -2,8 +2,8 @@
 title = "Bayesian Linear Regression with PyMC"
 date = 2024-05-27T16:57:31+08:00
 draft = false
-summary = " Learn the basics of Bayesian linear regression using Julia and Turing.jl. This tutorial covers model formulation, implementation, and interpretation through a practical example."
-tags = ["Bayesian", "Linear", "Regression", "PyMC", "Predictive Posterior"]
+summary = " Learn the basics of Bayesian linear regression using the excellent PyMC Probabilistic Programming package. This focuses on model formulation in PyMC, interpretation, and how to make predictions on out-of-sample data."
+tags = ["Bayesian", "Bayesian Regression", "Regression", "PyMC", "Predictions", "Predictive Posterior"]
 +++
 
 <a href="https://colab.research.google.com/github/vflores-io/Portfolio/blob/main/Bayesian%20Methods%20Tutorials/Python/PyMC/E01_BayLinReg/E01_BayLinReg_PyMC.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a>

@@ -15,6 +15,15 @@ This dashboard is deployed (at the time of writing this post) here:
 
 [https://elections-dash.onrender.com/](https://elections-dash.onrender.com/)
 
+Here are some screenshots of the final dashboard, in case the deployed dashboard takes took long to load or is unavailable:
+
+![png](/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap01.png)
+
+![png](/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap02.png)
+
+![png](/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap03.png)
+
+
 Here is the full code:
 
 

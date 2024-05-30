@@ -18,11 +18,21 @@
     </item>
     
     <item>
-      <title>Linear</title>
-      <link>http://localhost:1313/tags/linear/</link>
+      <title>Bayesian Regression</title>
+      <link>http://localhost:1313/tags/bayesian-regression/</link>
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/linear/</guid>
+      <guid>http://localhost:1313/tags/bayesian-regression/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Predictions</title>
+      <link>http://localhost:1313/tags/predictions/</link>
+      <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/predictions/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
@@ -213,6 +223,16 @@
       <pubDate>Tue, 09 Jan 2024 11:57:07 +0800</pubDate>
       
       <guid>http://localhost:1313/tags/logistic/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Bayesian Linear Regression</title>
+      <link>http://localhost:1313/tags/bayesian-linear-regression/</link>
+      <pubDate>Fri, 10 Nov 2023 14:53:29 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/bayesian-linear-regression/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>

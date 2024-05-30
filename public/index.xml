@@ -13,7 +13,7 @@
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
       <guid>http://localhost:1313/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</guid>
-      <description>Learn the basics of Bayesian linear regression using Julia and Turing.jl. This tutorial covers model formulation, implementation, and interpretation through a practical example.</description>
+      <description>Learn the basics of Bayesian linear regression using the excellent PyMC Probabilistic Programming package. This focuses on model formulation in PyMC, interpretation, and how to make predictions on out-of-sample data.</description>
       <content:encoded><![CDATA[<p><a href="https://colab.research.google.com/github/vflores-io/Portfolio/blob/main/Bayesian%20Methods%20Tutorials/Python/PyMC/E01_BayLinReg/E01_BayLinReg_PyMC.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a></p>
 <hr>
 <h3 id="problem-statement">Problem Statement</h3>
@@ -5388,6 +5388,10 @@ dtype: object
 <p>The cleaned data is loadsed and the plot generating functions are refactored here. Then a dashboard is created using dash.</p>
 <p>This dashboard is deployed (at the time of writing this post) here:</p>
 <p><a href="https://elections-dash.onrender.com/">https://elections-dash.onrender.com/</a></p>
+<p>Here are some screenshots of the final dashboard, in case the deployed dashboard takes took long to load or is unavailable:</p>
+<p><img loading="lazy" src="/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap01.png" type="" alt="png"  /></p>
+<p><img loading="lazy" src="/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap02.png" type="" alt="png"  /></p>
+<p><img loading="lazy" src="/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap03.png" type="" alt="png"  /></p>
 <p>Here is the full code:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">requests</span>

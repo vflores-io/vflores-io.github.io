@@ -3,7 +3,7 @@ title = 'Bayesian Logistic Regression with Julia and Turing.jl'
 date = 2024-01-09T11:57:07+08:00
 draft = false
 summary = "Applying Turing.jl package in Julia for a probabilistic approach to a classification problem on a real-world dataset."
-tags = [ "Bayesian", "Logistic", "Regression", "Turing", "Julia"]
+tags = [ "Bayesian", "Bayesian Regression", "Logistic", "Regression", "Turing", "Julia"]
 +++
 ---
 

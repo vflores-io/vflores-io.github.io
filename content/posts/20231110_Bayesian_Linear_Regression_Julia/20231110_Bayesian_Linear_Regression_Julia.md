@@ -3,7 +3,7 @@ title = "Bayesian Linear Regression with Julia and Turing.jl"
 date = 2023-11-10T14:53:29+08:00
 draft = false
 summary = " Learn the basics of Bayesian linear regression using Julia and Turing.jl. This tutorial covers model formulation, implementation, and interpretation through a practical example."
-tags = ["Bayesian", "Linear", "Regression", "Turing", "Julia"]
+tags = ["Bayesian", "Bayesian Linear Regression", "Regression", "Turing", "Julia"]
 +++
 ---
 
