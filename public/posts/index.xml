@@ -5389,9 +5389,9 @@ dtype: object
 <p>This dashboard is deployed (at the time of writing this post) here:</p>
 <p><a href="https://elections-dash.onrender.com/">https://elections-dash.onrender.com/</a></p>
 <p>Here are some screenshots of the final dashboard, in case the deployed dashboard takes took long to load or is unavailable:</p>
-<p><a href="/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap01.png">!png</a></p>
-<p><a href="/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap02.png">!png</a></p>
-<p><a href="/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap03.png">!png</a></p>
+<p><img loading="lazy" src="/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap01.png" type="" alt="png"  /></p>
+<p><img loading="lazy" src="/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap02.png" type="" alt="png"  /></p>
+<p><img loading="lazy" src="/images/20240509_election_dash_part_2-dashboard/elections_dashboard_cap03.png" type="" alt="png"  /></p>
 <p>Here is the full code:</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">requests</span>
