@@ -2,7 +2,7 @@
 title = "Bayesian Classification and Survival Analysis with NumPyro"
 date = 2024-09-24T14:12:51+08:00
 draft = false
-summary = "Applying Bayesian Classification and Survival Analysis to the Cirrhosis PAtient Dataset. "
+summary = "Applying Bayesian Classification and Survival Analysis to the Cirrhosis Patient Dataset. "
 tags = ["Bayesian Classification", "Classification", "Bayesian Survival Analysis", "Bayesian Regression", "Weibull", "NumPyro"]
 +++
 
