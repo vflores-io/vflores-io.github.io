@@ -1,6 +1,5 @@
 baseURL: "https://vflores-io.github.io/"
 title: Victor Flores
-paginate: 6
 theme: PaperModX
 
 enableRobotsTXT: true
@@ -153,3 +152,7 @@ markup:
   goldmark:
     renderer:
       unsafe: true
+
+# pagination settings
+pagination:
+  pagerSize: 6

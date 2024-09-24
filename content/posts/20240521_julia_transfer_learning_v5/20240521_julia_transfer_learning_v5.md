@@ -103,32 +103,8 @@ val_filepaths = [abspath(joinpath(val_data_path, filename)) for filename in val_
 
 
     110-element Vector{String}:
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 103 bytes ⋯ [22m[39m"18cd56a2ae74d2ffc8fdc89cbb.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 103 bytes ⋯ [22m[39m"6625698d9d2166cdafe47e6d17.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 106 bytes ⋯ [22m[39m"99a04518d4d80adea474bbe89a.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 104 bytes ⋯ [22m[39m"97c687e09bf5981b9bb729304f.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 103 bytes ⋯ [22m[39m"be307e32ffc3c27ee7f49305b6.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 106 bytes ⋯ [22m[39m"fabcbee5c45195a0e34918a0a1.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 105 bytes ⋯ [22m[39m"d2b7179bdf5554ea40998d9d93.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 105 bytes ⋯ [22m[39m"bae261f0ca148e055d0935580e.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 102 bytes ⋯ [22m[39m"a84e5fa1564b409f26ea9ed0c9.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 106 bytes ⋯ [22m[39m"4664e5d811b55a69cac9823a87.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 103 bytes ⋯ [22m[39m"7fccb36f778a5cae5eda1e6cfc.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 104 bytes ⋯ [22m[39m"824395bcb65dc5b8ecd013ab0d.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 106 bytes ⋯ [22m[39m"4e1297350b8f05b54f387e002a.jpg"
+     
      ⋮
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 105 bytes ⋯ [22m[39m"59f6a427983efd9308ddddeea7.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 103 bytes ⋯ [22m[39m"8768c7f0096dc16431b41c8367.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 103 bytes ⋯ [22m[39m"aa5d35bce083f1505a7b1e727e.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 104 bytes ⋯ [22m[39m"5c4e68b8fba7c493f0b8bfd7bc.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 103 bytes ⋯ [22m[39m"05ac086aa8b99cb8b942b1af16.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 102 bytes ⋯ [22m[39m"db819e63e4b80c5caed5a07c47.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 103 bytes ⋯ [22m[39m"b96481186b7376b108e9546306.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 105 bytes ⋯ [22m[39m"d5aaf15e5d105aa82e24a85eff.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 103 bytes ⋯ [22m[39m"5e29bd734c42a6b7b2267fb31e.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 104 bytes ⋯ [22m[39m"0628948e8f68a77c821746f0b3.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 103 bytes ⋯ [22m[39m"4dee18ead713b297b872642c25.jpg"
-     "H:\\My Drive\\Projects\\Coding\\Por"[93m[1m ⋯ 104 bytes ⋯ [22m[39m"eeffac7d65a76096d457bd5949.jpg"
 
 
 

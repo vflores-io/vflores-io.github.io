@@ -1,0 +1,2729 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Survival Analysis on Victor Flores</title>
+    <link>http://localhost:1313/tags/survival-analysis/</link>
+    <description>Recent content in Survival Analysis on Victor Flores</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <lastBuildDate>Mon, 23 Sep 2024 14:33:31 +1600</lastBuildDate><atom:link href="http://localhost:1313/tags/survival-analysis/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Bayesian Classification and Survival Analysis with NumPyro</title>
+      <link>http://localhost:1313/posts/20240924_numpyro_logreg_surv_analysis/np01_logreg_surv_analysis/</link>
+      <pubDate>Mon, 23 Sep 2024 14:33:31 +1600</pubDate>
+      
+      <guid>http://localhost:1313/posts/20240924_numpyro_logreg_surv_analysis/np01_logreg_surv_analysis/</guid>
+      <description>This project applies Bayesian classification and survival analysis techniques to the Cirrhosis Patient Dataset.</description>
+      <content:encoded><![CDATA[<p><a href="https://colab.research.google.com/github/vflores-io/Portfolio/blob/main/Bayesian%20Methods%20Tutorials/Python/NumPyro/NP01_LogReg_Surv_Analysis/NP01_LogReg_Surv_Analysis.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a></p>
+<h2 id="survival-analysis-numpyro">Survival Analysis NumPyro</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">sys</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="s1">&#39;google.colab&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">get_ipython</span><span class="p">()):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="s1">&#39;numpyro&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">sys</span><span class="o">.</span><span class="n">modules</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="kn">from</span> <span class="nn">google.colab</span> <span class="kn">import</span> <span class="n">drive</span>
+</span></span><span class="line"><span class="cl">        <span class="n">drive</span><span class="o">.</span><span class="n">mount</span><span class="p">(</span><span class="s1">&#39;/content/drive&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Running on Google Colab. NumPyro will be installed in this environment.&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="err">!</span><span class="n">pip</span> <span class="n">install</span> <span class="o">-</span><span class="n">q</span> <span class="n">numpyro</span><span class="nd">@git</span><span class="o">+</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">pyro</span><span class="o">-</span><span class="n">ppl</span><span class="o">/</span><span class="n">numpyro</span> <span class="n">arviz</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;NumPyro is already installed. Skipping installation.&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Running locally. Make sure NumPyro and dependencies are installed in the environment.&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>Mounted at /content/drive
+Running on Google Colab. NumPyro will be installed in this environment.
+  Installing build dependencies ... [?25l[?25hdone
+  Getting requirements to build wheel ... [?25l[?25hdone
+  Preparing metadata (pyproject.toml) ... [?25l[?25hdone
+  Building wheel for numpyro (pyproject.toml) ... [?25l[?25hdone
+</code></pre>
+<h2 id="setup-and-imports">Setup and Imports</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">numpyro</span>
+</span></span><span class="line"><span class="cl"><span class="n">numpyro</span><span class="o">.</span><span class="n">set_host_device_count</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">numpyro.distributions</span> <span class="k">as</span> <span class="nn">dist</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">numpyro.infer</span> <span class="kn">import</span> <span class="n">MCMC</span><span class="p">,</span> <span class="n">NUTS</span><span class="p">,</span> <span class="n">Predictive</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">jax</span> <span class="kn">import</span> <span class="n">random</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">seaborn</span> <span class="k">as</span> <span class="nn">sns</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">arviz</span> <span class="k">as</span> <span class="nn">az</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">cm</span>
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">sklearn.preprocessing</span> <span class="kn">import</span> <span class="n">LabelEncoder</span><span class="p">,</span> <span class="n">scale</span>
+</span></span></code></pre></div><h2 id="load-the-data">Load the Data</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">if</span> <span class="s1">&#39;google.colab&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">get_ipython</span><span class="p">()):</span>
+</span></span><span class="line"><span class="cl">  <span class="n">data_path</span> <span class="o">=</span> <span class="s1">&#39;https://archive.ics.uci.edu/static/public/878/data.csv&#39;</span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">  <span class="n">data_path</span> <span class="o">=</span> <span class="s1">&#39;data/cirrhosis.csv&#39;</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</span></span></code></pre></div>  <div id="df-82c9edf3-f5ff-4175-97f5-42ed38081d42" class="colab-df-container">
+    <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+<pre><code>.dataframe tbody tr th {
+    vertical-align: top;
+}
+
+.dataframe thead th {
+    text-align: right;
+}
+</code></pre>
+<p></style></p>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>ID</th>
+      <th>N_Days</th>
+      <th>Status</th>
+      <th>Drug</th>
+      <th>Age</th>
+      <th>Sex</th>
+      <th>Ascites</th>
+      <th>Hepatomegaly</th>
+      <th>Spiders</th>
+      <th>Edema</th>
+      <th>Bilirubin</th>
+      <th>Cholesterol</th>
+      <th>Albumin</th>
+      <th>Copper</th>
+      <th>Alk_Phos</th>
+      <th>SGOT</th>
+      <th>Tryglicerides</th>
+      <th>Platelets</th>
+      <th>Prothrombin</th>
+      <th>Stage</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>400</td>
+      <td>D</td>
+      <td>D-penicillamine</td>
+      <td>21464</td>
+      <td>F</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>14.5</td>
+      <td>261</td>
+      <td>2.60</td>
+      <td>156</td>
+      <td>1718.0</td>
+      <td>137.95</td>
+      <td>172</td>
+      <td>190</td>
+      <td>12.2</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>4500</td>
+      <td>C</td>
+      <td>D-penicillamine</td>
+      <td>20617</td>
+      <td>F</td>
+      <td>N</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>N</td>
+      <td>1.1</td>
+      <td>302</td>
+      <td>4.14</td>
+      <td>54</td>
+      <td>7394.8</td>
+      <td>113.52</td>
+      <td>88</td>
+      <td>221</td>
+      <td>10.6</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>1012</td>
+      <td>D</td>
+      <td>D-penicillamine</td>
+      <td>25594</td>
+      <td>M</td>
+      <td>N</td>
+      <td>N</td>
+      <td>N</td>
+      <td>S</td>
+      <td>1.4</td>
+      <td>176</td>
+      <td>3.48</td>
+      <td>210</td>
+      <td>516.0</td>
+      <td>96.10</td>
+      <td>55</td>
+      <td>151</td>
+      <td>12.0</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>1925</td>
+      <td>D</td>
+      <td>D-penicillamine</td>
+      <td>19994</td>
+      <td>F</td>
+      <td>N</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>S</td>
+      <td>1.8</td>
+      <td>244</td>
+      <td>2.54</td>
+      <td>64</td>
+      <td>6121.8</td>
+      <td>60.63</td>
+      <td>92</td>
+      <td>183</td>
+      <td>10.3</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>1504</td>
+      <td>CL</td>
+      <td>Placebo</td>
+      <td>13918</td>
+      <td>F</td>
+      <td>N</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>N</td>
+      <td>3.4</td>
+      <td>279</td>
+      <td>3.53</td>
+      <td>143</td>
+      <td>671.0</td>
+      <td>113.15</td>
+      <td>72</td>
+      <td>136</td>
+      <td>10.9</td>
+      <td>3.0</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+    <div class="colab-df-buttons">
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-82c9edf3-f5ff-4175-97f5-42ed38081d42')"
+            title="Convert this dataframe to an interactive table."
+            style="display:none;">
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"/>
+  </svg>
+    </button>
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+<pre><code>&lt;script&gt;
+  const buttonEl =
+    document.querySelector('#df-82c9edf3-f5ff-4175-97f5-42ed38081d42 button.colab-df-convert');
+  buttonEl.style.display =
+    google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+  async function convertToInteractive(key) {
+    const element = document.querySelector('#df-82c9edf3-f5ff-4175-97f5-42ed38081d42');
+    const dataTable =
+      await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                [key], {});
+    if (!dataTable) return;
+
+    const docLinkHtml = 'Like what you see? Visit the ' +
+      '&lt;a target=&quot;_blank&quot; href=https://colab.research.google.com/notebooks/data_table.ipynb&gt;data table notebook&lt;/a&gt;'
+      + ' to learn more about interactive tables.';
+    element.innerHTML = '';
+    dataTable['output_type'] = 'display_data';
+    await google.colab.output.renderOutput(dataTable, element);
+    const docLink = document.createElement('div');
+    docLink.innerHTML = docLinkHtml;
+    element.appendChild(docLink);
+  }
+&lt;/script&gt;
+</code></pre>
+  </div>
+<div id="df-b6acc181-e1d0-4e35-9c0a-20920d35e483">
+  <button class="colab-df-quickchart" onclick="quickchart('df-b6acc181-e1d0-4e35-9c0a-20920d35e483')"
+            title="Suggest charts"
+            style="display:none;">
+<p>&lt;svg xmlns=&ldquo;<a href="http://www.w3.org/2000/svg%22">http://www.w3.org/2000/svg&quot;</a> height=&ldquo;24px&quot;viewBox=&ldquo;0 0 24 24&rdquo;
+width=&ldquo;24px&rdquo;&gt;
+<g>
+<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+</g>
+</svg>
+</button></p>
+<style>
+  .colab-df-quickchart {
+      --bg-color: #E8F0FE;
+      --fill-color: #1967D2;
+      --hover-bg-color: #E2EBFA;
+      --hover-fill-color: #174EA6;
+      --disabled-fill-color: #AAA;
+      --disabled-bg-color: #DDD;
+  }
+
+  [theme=dark] .colab-df-quickchart {
+      --bg-color: #3B4455;
+      --fill-color: #D2E3FC;
+      --hover-bg-color: #434B5C;
+      --hover-fill-color: #FFFFFF;
+      --disabled-bg-color: #3B4455;
+      --disabled-fill-color: #666;
+  }
+
+  .colab-df-quickchart {
+    background-color: var(--bg-color);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    fill: var(--fill-color);
+    height: 32px;
+    padding: 0;
+    width: 32px;
+  }
+
+  .colab-df-quickchart:hover {
+    background-color: var(--hover-bg-color);
+    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    fill: var(--button-hover-fill-color);
+  }
+
+  .colab-df-quickchart-complete:disabled,
+  .colab-df-quickchart-complete:disabled:hover {
+    background-color: var(--disabled-bg-color);
+    fill: var(--disabled-fill-color);
+    box-shadow: none;
+  }
+
+  .colab-df-spinner {
+    border: 2px solid var(--fill-color);
+    border-color: transparent;
+    border-bottom-color: var(--fill-color);
+    animation:
+      spin 1s steps(1) infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      border-color: transparent;
+      border-bottom-color: var(--fill-color);
+      border-left-color: var(--fill-color);
+    }
+    20% {
+      border-color: transparent;
+      border-left-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+    }
+    30% {
+      border-color: transparent;
+      border-left-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+      border-right-color: var(--fill-color);
+    }
+    40% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+    }
+    60% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+    }
+    80% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+      border-bottom-color: var(--fill-color);
+    }
+    90% {
+      border-color: transparent;
+      border-bottom-color: var(--fill-color);
+    }
+  }
+</style>
+  <script>
+    async function quickchart(key) {
+      const quickchartButtonEl =
+        document.querySelector('#' + key + ' button');
+      quickchartButtonEl.disabled = true;  // To prevent multiple clicks.
+      quickchartButtonEl.classList.add('colab-df-spinner');
+      try {
+        const charts = await google.colab.kernel.invokeFunction(
+            'suggestCharts', [key], {});
+      } catch (error) {
+        console.error('Error during call to suggestCharts:', error);
+      }
+      quickchartButtonEl.classList.remove('colab-df-spinner');
+      quickchartButtonEl.classList.add('colab-df-quickchart-complete');
+    }
+    (() => {
+      let quickchartButtonEl =
+        document.querySelector('#df-b6acc181-e1d0-4e35-9c0a-20920d35e483 button');
+      quickchartButtonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+    })();
+  </script>
+</div>
+<pre><code>&lt;/div&gt;
+</code></pre>
+  </div>
+<h2 id="some-preprocessing">Some Preprocessing</h2>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">data</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+</span></span></code></pre></div><pre><code>&lt;class 'pandas.core.frame.DataFrame'&gt;
+RangeIndex: 418 entries, 0 to 417
+Data columns (total 20 columns):
+ #   Column         Non-Null Count  Dtype  
+---  ------         --------------  -----  
+ 0   ID             418 non-null    int64  
+ 1   N_Days         418 non-null    int64  
+ 2   Status         418 non-null    object 
+ 3   Drug           313 non-null    object 
+ 4   Age            418 non-null    int64  
+ 5   Sex            418 non-null    object 
+ 6   Ascites        313 non-null    object 
+ 7   Hepatomegaly   313 non-null    object 
+ 8   Spiders        313 non-null    object 
+ 9   Edema          418 non-null    object 
+ 10  Bilirubin      418 non-null    float64
+ 11  Cholesterol    312 non-null    object 
+ 12  Albumin        418 non-null    float64
+ 13  Copper         312 non-null    object 
+ 14  Alk_Phos       312 non-null    float64
+ 15  SGOT           312 non-null    float64
+ 16  Tryglicerides  312 non-null    object 
+ 17  Platelets      411 non-null    object 
+ 18  Prothrombin    416 non-null    float64
+ 19  Stage          412 non-null    float64
+dtypes: float64(6), int64(3), object(11)
+memory usage: 65.4+ KB
+</code></pre>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># check for nan</span>
+</span></span><span class="line"><span class="cl"><span class="n">nan_values</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Number of NaN values:&#39;</span><span class="p">,</span> <span class="n">nan_values</span><span class="o">.</span><span class="n">sum</span><span class="p">())</span>
+</span></span></code></pre></div><pre><code>Number of NaN values: 965
+</code></pre>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Find columns with NaN values</span>
+</span></span><span class="line"><span class="cl"><span class="n">nan_columns</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">any</span><span class="p">()]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Columns with NaN values:</span><span class="se">\n</span><span class="s2">&#34;</span><span class="p">,</span> <span class="n">nan_columns</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>Columns with NaN values:
+ ['Drug', 'Ascites', 'Hepatomegaly', 'Spiders', 'Cholesterol', 'Copper', 'Alk_Phos', 'SGOT', 'Tryglicerides', 'Platelets', 'Prothrombin', 'Stage']
+</code></pre>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">data</span>
+</span></span></code></pre></div>  <div id="df-03e47d74-6c2e-4d21-aa9c-0e071b4aadcb" class="colab-df-container">
+    <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+<pre><code>.dataframe tbody tr th {
+    vertical-align: top;
+}
+
+.dataframe thead th {
+    text-align: right;
+}
+</code></pre>
+<p></style></p>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>ID</th>
+      <th>N_Days</th>
+      <th>Status</th>
+      <th>Drug</th>
+      <th>Age</th>
+      <th>Sex</th>
+      <th>Ascites</th>
+      <th>Hepatomegaly</th>
+      <th>Spiders</th>
+      <th>Edema</th>
+      <th>Bilirubin</th>
+      <th>Cholesterol</th>
+      <th>Albumin</th>
+      <th>Copper</th>
+      <th>Alk_Phos</th>
+      <th>SGOT</th>
+      <th>Tryglicerides</th>
+      <th>Platelets</th>
+      <th>Prothrombin</th>
+      <th>Stage</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>400</td>
+      <td>D</td>
+      <td>D-penicillamine</td>
+      <td>21464</td>
+      <td>F</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>14.5</td>
+      <td>261</td>
+      <td>2.60</td>
+      <td>156</td>
+      <td>1718.0</td>
+      <td>137.95</td>
+      <td>172</td>
+      <td>190</td>
+      <td>12.2</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>4500</td>
+      <td>C</td>
+      <td>D-penicillamine</td>
+      <td>20617</td>
+      <td>F</td>
+      <td>N</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>N</td>
+      <td>1.1</td>
+      <td>302</td>
+      <td>4.14</td>
+      <td>54</td>
+      <td>7394.8</td>
+      <td>113.52</td>
+      <td>88</td>
+      <td>221</td>
+      <td>10.6</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>1012</td>
+      <td>D</td>
+      <td>D-penicillamine</td>
+      <td>25594</td>
+      <td>M</td>
+      <td>N</td>
+      <td>N</td>
+      <td>N</td>
+      <td>S</td>
+      <td>1.4</td>
+      <td>176</td>
+      <td>3.48</td>
+      <td>210</td>
+      <td>516.0</td>
+      <td>96.10</td>
+      <td>55</td>
+      <td>151</td>
+      <td>12.0</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>1925</td>
+      <td>D</td>
+      <td>D-penicillamine</td>
+      <td>19994</td>
+      <td>F</td>
+      <td>N</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>S</td>
+      <td>1.8</td>
+      <td>244</td>
+      <td>2.54</td>
+      <td>64</td>
+      <td>6121.8</td>
+      <td>60.63</td>
+      <td>92</td>
+      <td>183</td>
+      <td>10.3</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>1504</td>
+      <td>CL</td>
+      <td>Placebo</td>
+      <td>13918</td>
+      <td>F</td>
+      <td>N</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>N</td>
+      <td>3.4</td>
+      <td>279</td>
+      <td>3.53</td>
+      <td>143</td>
+      <td>671.0</td>
+      <td>113.15</td>
+      <td>72</td>
+      <td>136</td>
+      <td>10.9</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>413</th>
+      <td>414</td>
+      <td>681</td>
+      <td>D</td>
+      <td>NaN</td>
+      <td>24472</td>
+      <td>F</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>N</td>
+      <td>1.2</td>
+      <td>NaN</td>
+      <td>2.96</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>174</td>
+      <td>10.9</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>414</th>
+      <td>415</td>
+      <td>1103</td>
+      <td>C</td>
+      <td>NaN</td>
+      <td>14245</td>
+      <td>F</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>N</td>
+      <td>0.9</td>
+      <td>NaN</td>
+      <td>3.83</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>180</td>
+      <td>11.2</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>415</th>
+      <td>416</td>
+      <td>1055</td>
+      <td>C</td>
+      <td>NaN</td>
+      <td>20819</td>
+      <td>F</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>N</td>
+      <td>1.6</td>
+      <td>NaN</td>
+      <td>3.42</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>143</td>
+      <td>9.9</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>416</th>
+      <td>417</td>
+      <td>691</td>
+      <td>C</td>
+      <td>NaN</td>
+      <td>21185</td>
+      <td>F</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>N</td>
+      <td>0.8</td>
+      <td>NaN</td>
+      <td>3.75</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>269</td>
+      <td>10.4</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>417</th>
+      <td>418</td>
+      <td>976</td>
+      <td>C</td>
+      <td>NaN</td>
+      <td>19358</td>
+      <td>F</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>N</td>
+      <td>0.7</td>
+      <td>NaN</td>
+      <td>3.29</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>350</td>
+      <td>10.6</td>
+      <td>4.0</td>
+    </tr>
+  </tbody>
+</table>
+<p>418 rows × 20 columns</p>
+</div>
+    <div class="colab-df-buttons">
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-03e47d74-6c2e-4d21-aa9c-0e071b4aadcb')"
+            title="Convert this dataframe to an interactive table."
+            style="display:none;">
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"/>
+  </svg>
+    </button>
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+<pre><code>&lt;script&gt;
+  const buttonEl =
+    document.querySelector('#df-03e47d74-6c2e-4d21-aa9c-0e071b4aadcb button.colab-df-convert');
+  buttonEl.style.display =
+    google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+  async function convertToInteractive(key) {
+    const element = document.querySelector('#df-03e47d74-6c2e-4d21-aa9c-0e071b4aadcb');
+    const dataTable =
+      await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                [key], {});
+    if (!dataTable) return;
+
+    const docLinkHtml = 'Like what you see? Visit the ' +
+      '&lt;a target=&quot;_blank&quot; href=https://colab.research.google.com/notebooks/data_table.ipynb&gt;data table notebook&lt;/a&gt;'
+      + ' to learn more about interactive tables.';
+    element.innerHTML = '';
+    dataTable['output_type'] = 'display_data';
+    await google.colab.output.renderOutput(dataTable, element);
+    const docLink = document.createElement('div');
+    docLink.innerHTML = docLinkHtml;
+    element.appendChild(docLink);
+  }
+&lt;/script&gt;
+</code></pre>
+  </div>
+<div id="df-ab1bf92a-0ad6-468c-9097-0af583bdea07">
+  <button class="colab-df-quickchart" onclick="quickchart('df-ab1bf92a-0ad6-468c-9097-0af583bdea07')"
+            title="Suggest charts"
+            style="display:none;">
+<p>&lt;svg xmlns=&ldquo;<a href="http://www.w3.org/2000/svg%22">http://www.w3.org/2000/svg&quot;</a> height=&ldquo;24px&quot;viewBox=&ldquo;0 0 24 24&rdquo;
+width=&ldquo;24px&rdquo;&gt;
+<g>
+<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+</g>
+</svg>
+</button></p>
+<style>
+  .colab-df-quickchart {
+      --bg-color: #E8F0FE;
+      --fill-color: #1967D2;
+      --hover-bg-color: #E2EBFA;
+      --hover-fill-color: #174EA6;
+      --disabled-fill-color: #AAA;
+      --disabled-bg-color: #DDD;
+  }
+
+  [theme=dark] .colab-df-quickchart {
+      --bg-color: #3B4455;
+      --fill-color: #D2E3FC;
+      --hover-bg-color: #434B5C;
+      --hover-fill-color: #FFFFFF;
+      --disabled-bg-color: #3B4455;
+      --disabled-fill-color: #666;
+  }
+
+  .colab-df-quickchart {
+    background-color: var(--bg-color);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    fill: var(--fill-color);
+    height: 32px;
+    padding: 0;
+    width: 32px;
+  }
+
+  .colab-df-quickchart:hover {
+    background-color: var(--hover-bg-color);
+    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    fill: var(--button-hover-fill-color);
+  }
+
+  .colab-df-quickchart-complete:disabled,
+  .colab-df-quickchart-complete:disabled:hover {
+    background-color: var(--disabled-bg-color);
+    fill: var(--disabled-fill-color);
+    box-shadow: none;
+  }
+
+  .colab-df-spinner {
+    border: 2px solid var(--fill-color);
+    border-color: transparent;
+    border-bottom-color: var(--fill-color);
+    animation:
+      spin 1s steps(1) infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      border-color: transparent;
+      border-bottom-color: var(--fill-color);
+      border-left-color: var(--fill-color);
+    }
+    20% {
+      border-color: transparent;
+      border-left-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+    }
+    30% {
+      border-color: transparent;
+      border-left-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+      border-right-color: var(--fill-color);
+    }
+    40% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+    }
+    60% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+    }
+    80% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+      border-bottom-color: var(--fill-color);
+    }
+    90% {
+      border-color: transparent;
+      border-bottom-color: var(--fill-color);
+    }
+  }
+</style>
+  <script>
+    async function quickchart(key) {
+      const quickchartButtonEl =
+        document.querySelector('#' + key + ' button');
+      quickchartButtonEl.disabled = true;  // To prevent multiple clicks.
+      quickchartButtonEl.classList.add('colab-df-spinner');
+      try {
+        const charts = await google.colab.kernel.invokeFunction(
+            'suggestCharts', [key], {});
+      } catch (error) {
+        console.error('Error during call to suggestCharts:', error);
+      }
+      quickchartButtonEl.classList.remove('colab-df-spinner');
+      quickchartButtonEl.classList.add('colab-df-quickchart-complete');
+    }
+    (() => {
+      let quickchartButtonEl =
+        document.querySelector('#df-ab1bf92a-0ad6-468c-9097-0af583bdea07 button');
+      quickchartButtonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+    })();
+  </script>
+</div>
+  <div id="id_70f052f1-1813-4be1-91a0-13964f4001d9">
+    <style>
+      .colab-df-generate {
+        background-color: #E8F0FE;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: none;
+        fill: #1967D2;
+        height: 32px;
+        padding: 0 0 0 0;
+        width: 32px;
+      }
+<pre><code>  .colab-df-generate:hover {
+    background-color: #E2EBFA;
+    box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+    fill: #174EA6;
+  }
+
+  [theme=dark] .colab-df-generate {
+    background-color: #3B4455;
+    fill: #D2E3FC;
+  }
+
+  [theme=dark] .colab-df-generate:hover {
+    background-color: #434B5C;
+    box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+    filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+    fill: #FFFFFF;
+  }
+&lt;/style&gt;
+&lt;button class=&quot;colab-df-generate&quot; onclick=&quot;generateWithVariable('data')&quot;
+        title=&quot;Generate code using this dataframe.&quot;
+        style=&quot;display:none;&quot;&gt;
+</code></pre>
+<p>&lt;svg xmlns=&ldquo;<a href="http://www.w3.org/2000/svg%22">http://www.w3.org/2000/svg&quot;</a> height=&ldquo;24px&quot;viewBox=&ldquo;0 0 24 24&rdquo;
+width=&ldquo;24px&rdquo;&gt;
+<path d="M7,19H8.4L18.45,9,17,7.55,7,17.6ZM5,21V16.75L18.45,3.32a2,2,0,0,1,2.83,0l1.4,1.43a1.91,1.91,0,0,1,.58,1.4,1.91,1.91,0,0,1-.58,1.4L9.25,21ZM18.45,9,17,7.55Zm-12,3A5.31,5.31,0,0,0,4.9,8.1,5.31,5.31,0,0,0,1,6.5,5.31,5.31,0,0,0,4.9,4.9,5.31,5.31,0,0,0,6.5,1,5.31,5.31,0,0,0,8.1,4.9,5.31,5.31,0,0,0,12,6.5,5.46,5.46,0,0,0,6.5,12Z"/>
+</svg>
+</button>
+<script>
+(() =&gt; {
+const buttonEl =
+document.querySelector(&rsquo;#id_70f052f1-1813-4be1-91a0-13964f4001d9 button.colab-df-generate&rsquo;);
+buttonEl.style.display =
+google.colab.kernel.accessAllowed ? &lsquo;block&rsquo; : &rsquo;none&rsquo;;</p>
+<pre><code>  buttonEl.onclick = () =&gt; {
+    google.colab.notebook.generateWithVariable('data');
+  }
+  })();
+&lt;/script&gt;
+</code></pre>
+  </div>
+<pre><code>&lt;/div&gt;
+</code></pre>
+  </div>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># fill NaN values with 0</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">data</span>
+</span></span></code></pre></div>  <div id="df-d733307f-512a-485b-9c51-4c2e04258b23" class="colab-df-container">
+    <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+<pre><code>.dataframe tbody tr th {
+    vertical-align: top;
+}
+
+.dataframe thead th {
+    text-align: right;
+}
+</code></pre>
+<p></style></p>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>ID</th>
+      <th>N_Days</th>
+      <th>Status</th>
+      <th>Drug</th>
+      <th>Age</th>
+      <th>Sex</th>
+      <th>Ascites</th>
+      <th>Hepatomegaly</th>
+      <th>Spiders</th>
+      <th>Edema</th>
+      <th>Bilirubin</th>
+      <th>Cholesterol</th>
+      <th>Albumin</th>
+      <th>Copper</th>
+      <th>Alk_Phos</th>
+      <th>SGOT</th>
+      <th>Tryglicerides</th>
+      <th>Platelets</th>
+      <th>Prothrombin</th>
+      <th>Stage</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>400</td>
+      <td>D</td>
+      <td>D-penicillamine</td>
+      <td>21464</td>
+      <td>F</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>14.5</td>
+      <td>261</td>
+      <td>2.60</td>
+      <td>156</td>
+      <td>1718.0</td>
+      <td>137.95</td>
+      <td>172</td>
+      <td>190</td>
+      <td>12.2</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>4500</td>
+      <td>C</td>
+      <td>D-penicillamine</td>
+      <td>20617</td>
+      <td>F</td>
+      <td>N</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>N</td>
+      <td>1.1</td>
+      <td>302</td>
+      <td>4.14</td>
+      <td>54</td>
+      <td>7394.8</td>
+      <td>113.52</td>
+      <td>88</td>
+      <td>221</td>
+      <td>10.6</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>1012</td>
+      <td>D</td>
+      <td>D-penicillamine</td>
+      <td>25594</td>
+      <td>M</td>
+      <td>N</td>
+      <td>N</td>
+      <td>N</td>
+      <td>S</td>
+      <td>1.4</td>
+      <td>176</td>
+      <td>3.48</td>
+      <td>210</td>
+      <td>516.0</td>
+      <td>96.10</td>
+      <td>55</td>
+      <td>151</td>
+      <td>12.0</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>1925</td>
+      <td>D</td>
+      <td>D-penicillamine</td>
+      <td>19994</td>
+      <td>F</td>
+      <td>N</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>S</td>
+      <td>1.8</td>
+      <td>244</td>
+      <td>2.54</td>
+      <td>64</td>
+      <td>6121.8</td>
+      <td>60.63</td>
+      <td>92</td>
+      <td>183</td>
+      <td>10.3</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>1504</td>
+      <td>CL</td>
+      <td>Placebo</td>
+      <td>13918</td>
+      <td>F</td>
+      <td>N</td>
+      <td>Y</td>
+      <td>Y</td>
+      <td>N</td>
+      <td>3.4</td>
+      <td>279</td>
+      <td>3.53</td>
+      <td>143</td>
+      <td>671.0</td>
+      <td>113.15</td>
+      <td>72</td>
+      <td>136</td>
+      <td>10.9</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>413</th>
+      <td>414</td>
+      <td>681</td>
+      <td>D</td>
+      <td>0</td>
+      <td>24472</td>
+      <td>F</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>N</td>
+      <td>1.2</td>
+      <td>0</td>
+      <td>2.96</td>
+      <td>0</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0</td>
+      <td>174</td>
+      <td>10.9</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>414</th>
+      <td>415</td>
+      <td>1103</td>
+      <td>C</td>
+      <td>0</td>
+      <td>14245</td>
+      <td>F</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>N</td>
+      <td>0.9</td>
+      <td>0</td>
+      <td>3.83</td>
+      <td>0</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0</td>
+      <td>180</td>
+      <td>11.2</td>
+      <td>4.0</td>
+    </tr>
+    <tr>
+      <th>415</th>
+      <td>416</td>
+      <td>1055</td>
+      <td>C</td>
+      <td>0</td>
+      <td>20819</td>
+      <td>F</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>N</td>
+      <td>1.6</td>
+      <td>0</td>
+      <td>3.42</td>
+      <td>0</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0</td>
+      <td>143</td>
+      <td>9.9</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>416</th>
+      <td>417</td>
+      <td>691</td>
+      <td>C</td>
+      <td>0</td>
+      <td>21185</td>
+      <td>F</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>N</td>
+      <td>0.8</td>
+      <td>0</td>
+      <td>3.75</td>
+      <td>0</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0</td>
+      <td>269</td>
+      <td>10.4</td>
+      <td>3.0</td>
+    </tr>
+    <tr>
+      <th>417</th>
+      <td>418</td>
+      <td>976</td>
+      <td>C</td>
+      <td>0</td>
+      <td>19358</td>
+      <td>F</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>N</td>
+      <td>0.7</td>
+      <td>0</td>
+      <td>3.29</td>
+      <td>0</td>
+      <td>0.0</td>
+      <td>0.00</td>
+      <td>0</td>
+      <td>350</td>
+      <td>10.6</td>
+      <td>4.0</td>
+    </tr>
+  </tbody>
+</table>
+<p>418 rows × 20 columns</p>
+</div>
+    <div class="colab-df-buttons">
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-d733307f-512a-485b-9c51-4c2e04258b23')"
+            title="Convert this dataframe to an interactive table."
+            style="display:none;">
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"/>
+  </svg>
+    </button>
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+<pre><code>&lt;script&gt;
+  const buttonEl =
+    document.querySelector('#df-d733307f-512a-485b-9c51-4c2e04258b23 button.colab-df-convert');
+  buttonEl.style.display =
+    google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+  async function convertToInteractive(key) {
+    const element = document.querySelector('#df-d733307f-512a-485b-9c51-4c2e04258b23');
+    const dataTable =
+      await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                [key], {});
+    if (!dataTable) return;
+
+    const docLinkHtml = 'Like what you see? Visit the ' +
+      '&lt;a target=&quot;_blank&quot; href=https://colab.research.google.com/notebooks/data_table.ipynb&gt;data table notebook&lt;/a&gt;'
+      + ' to learn more about interactive tables.';
+    element.innerHTML = '';
+    dataTable['output_type'] = 'display_data';
+    await google.colab.output.renderOutput(dataTable, element);
+    const docLink = document.createElement('div');
+    docLink.innerHTML = docLinkHtml;
+    element.appendChild(docLink);
+  }
+&lt;/script&gt;
+</code></pre>
+  </div>
+<div id="df-fc07178b-6a7b-4e9b-92ef-d3aff9108334">
+  <button class="colab-df-quickchart" onclick="quickchart('df-fc07178b-6a7b-4e9b-92ef-d3aff9108334')"
+            title="Suggest charts"
+            style="display:none;">
+<p>&lt;svg xmlns=&ldquo;<a href="http://www.w3.org/2000/svg%22">http://www.w3.org/2000/svg&quot;</a> height=&ldquo;24px&quot;viewBox=&ldquo;0 0 24 24&rdquo;
+width=&ldquo;24px&rdquo;&gt;
+<g>
+<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+</g>
+</svg>
+</button></p>
+<style>
+  .colab-df-quickchart {
+      --bg-color: #E8F0FE;
+      --fill-color: #1967D2;
+      --hover-bg-color: #E2EBFA;
+      --hover-fill-color: #174EA6;
+      --disabled-fill-color: #AAA;
+      --disabled-bg-color: #DDD;
+  }
+
+  [theme=dark] .colab-df-quickchart {
+      --bg-color: #3B4455;
+      --fill-color: #D2E3FC;
+      --hover-bg-color: #434B5C;
+      --hover-fill-color: #FFFFFF;
+      --disabled-bg-color: #3B4455;
+      --disabled-fill-color: #666;
+  }
+
+  .colab-df-quickchart {
+    background-color: var(--bg-color);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    fill: var(--fill-color);
+    height: 32px;
+    padding: 0;
+    width: 32px;
+  }
+
+  .colab-df-quickchart:hover {
+    background-color: var(--hover-bg-color);
+    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    fill: var(--button-hover-fill-color);
+  }
+
+  .colab-df-quickchart-complete:disabled,
+  .colab-df-quickchart-complete:disabled:hover {
+    background-color: var(--disabled-bg-color);
+    fill: var(--disabled-fill-color);
+    box-shadow: none;
+  }
+
+  .colab-df-spinner {
+    border: 2px solid var(--fill-color);
+    border-color: transparent;
+    border-bottom-color: var(--fill-color);
+    animation:
+      spin 1s steps(1) infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      border-color: transparent;
+      border-bottom-color: var(--fill-color);
+      border-left-color: var(--fill-color);
+    }
+    20% {
+      border-color: transparent;
+      border-left-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+    }
+    30% {
+      border-color: transparent;
+      border-left-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+      border-right-color: var(--fill-color);
+    }
+    40% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+    }
+    60% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+    }
+    80% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+      border-bottom-color: var(--fill-color);
+    }
+    90% {
+      border-color: transparent;
+      border-bottom-color: var(--fill-color);
+    }
+  }
+</style>
+  <script>
+    async function quickchart(key) {
+      const quickchartButtonEl =
+        document.querySelector('#' + key + ' button');
+      quickchartButtonEl.disabled = true;  // To prevent multiple clicks.
+      quickchartButtonEl.classList.add('colab-df-spinner');
+      try {
+        const charts = await google.colab.kernel.invokeFunction(
+            'suggestCharts', [key], {});
+      } catch (error) {
+        console.error('Error during call to suggestCharts:', error);
+      }
+      quickchartButtonEl.classList.remove('colab-df-spinner');
+      quickchartButtonEl.classList.add('colab-df-quickchart-complete');
+    }
+    (() => {
+      let quickchartButtonEl =
+        document.querySelector('#df-fc07178b-6a7b-4e9b-92ef-d3aff9108334 button');
+      quickchartButtonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+    })();
+  </script>
+</div>
+  <div id="id_7c2734db-14b6-4e2f-ab70-6fac16322a6e">
+    <style>
+      .colab-df-generate {
+        background-color: #E8F0FE;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: none;
+        fill: #1967D2;
+        height: 32px;
+        padding: 0 0 0 0;
+        width: 32px;
+      }
+<pre><code>  .colab-df-generate:hover {
+    background-color: #E2EBFA;
+    box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+    fill: #174EA6;
+  }
+
+  [theme=dark] .colab-df-generate {
+    background-color: #3B4455;
+    fill: #D2E3FC;
+  }
+
+  [theme=dark] .colab-df-generate:hover {
+    background-color: #434B5C;
+    box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+    filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+    fill: #FFFFFF;
+  }
+&lt;/style&gt;
+&lt;button class=&quot;colab-df-generate&quot; onclick=&quot;generateWithVariable('data')&quot;
+        title=&quot;Generate code using this dataframe.&quot;
+        style=&quot;display:none;&quot;&gt;
+</code></pre>
+<p>&lt;svg xmlns=&ldquo;<a href="http://www.w3.org/2000/svg%22">http://www.w3.org/2000/svg&quot;</a> height=&ldquo;24px&quot;viewBox=&ldquo;0 0 24 24&rdquo;
+width=&ldquo;24px&rdquo;&gt;
+<path d="M7,19H8.4L18.45,9,17,7.55,7,17.6ZM5,21V16.75L18.45,3.32a2,2,0,0,1,2.83,0l1.4,1.43a1.91,1.91,0,0,1,.58,1.4,1.91,1.91,0,0,1-.58,1.4L9.25,21ZM18.45,9,17,7.55Zm-12,3A5.31,5.31,0,0,0,4.9,8.1,5.31,5.31,0,0,0,1,6.5,5.31,5.31,0,0,0,4.9,4.9,5.31,5.31,0,0,0,6.5,1,5.31,5.31,0,0,0,8.1,4.9,5.31,5.31,0,0,0,12,6.5,5.46,5.46,0,0,0,6.5,12Z"/>
+</svg>
+</button>
+<script>
+(() =&gt; {
+const buttonEl =
+document.querySelector(&rsquo;#id_7c2734db-14b6-4e2f-ab70-6fac16322a6e button.colab-df-generate&rsquo;);
+buttonEl.style.display =
+google.colab.kernel.accessAllowed ? &lsquo;block&rsquo; : &rsquo;none&rsquo;;</p>
+<pre><code>  buttonEl.onclick = () =&gt; {
+    google.colab.notebook.generateWithVariable('data');
+  }
+  })();
+&lt;/script&gt;
+</code></pre>
+  </div>
+<pre><code>&lt;/div&gt;
+</code></pre>
+  </div>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># separate categotical and numerical features</span>
+</span></span><span class="line"><span class="cl"><span class="n">categorical_data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">select_dtypes</span><span class="p">(</span><span class="n">include</span> <span class="o">=</span> <span class="s1">&#39;object&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># map status to binary vlaues</span>
+</span></span><span class="line"><span class="cl"><span class="n">status_mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;C&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;CL&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;D&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">categorical_data</span><span class="p">[</span><span class="s1">&#39;Status&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">categorical_data</span><span class="p">[</span><span class="s1">&#39;Status&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">status_mapping</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># select numerical features</span>
+</span></span><span class="line"><span class="cl"><span class="n">numerical_data</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">select_dtypes</span><span class="p">(</span><span class="n">include</span> <span class="o">=</span> <span class="s1">&#39;number&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># scale numerical features</span>
+</span></span><span class="line"><span class="cl"><span class="n">numerical_features_to_scale</span> <span class="o">=</span> <span class="n">numerical_data</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s1">&#39;ID&#39;</span><span class="p">,</span> <span class="s1">&#39;N_Days&#39;</span><span class="p">],</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="c1"># exclude target features</span>
+</span></span><span class="line"><span class="cl"><span class="n">numerical_scaled</span> <span class="o">=</span> <span class="n">scale</span><span class="p">(</span><span class="n">numerical_features_to_scale</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">numerical_scaled_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">numerical_scaled</span><span class="p">,</span> <span class="n">columns</span> <span class="o">=</span> <span class="n">numerical_features_to_scale</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># label encoder</span>
+</span></span><span class="line"><span class="cl"><span class="n">label_encoder</span> <span class="o">=</span> <span class="n">LabelEncoder</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">categorical_data</span> <span class="o">=</span> <span class="n">categorical_data</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">label_encoder</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># concatenate encoded categorical and scaled numerical features</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">categorical_data</span><span class="p">,</span> <span class="n">numerical_data</span><span class="p">[[</span><span class="s1">&#39;ID&#39;</span><span class="p">,</span> <span class="s1">&#39;N_Days&#39;</span><span class="p">]],</span> <span class="n">numerical_scaled_df</span><span class="p">],</span> <span class="n">axis</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</span></span></code></pre></div>  <div id="df-ee36249e-f6f7-4d58-9931-a50144377358" class="colab-df-container">
+    <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+<pre><code>.dataframe tbody tr th {
+    vertical-align: top;
+}
+
+.dataframe thead th {
+    text-align: right;
+}
+</code></pre>
+<p></style></p>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Status</th>
+      <th>Drug</th>
+      <th>Sex</th>
+      <th>Ascites</th>
+      <th>Hepatomegaly</th>
+      <th>Spiders</th>
+      <th>Edema</th>
+      <th>Cholesterol</th>
+      <th>Copper</th>
+      <th>Tryglicerides</th>
+      <th>Platelets</th>
+      <th>ID</th>
+      <th>N_Days</th>
+      <th>Age</th>
+      <th>Bilirubin</th>
+      <th>Albumin</th>
+      <th>Alk_Phos</th>
+      <th>SGOT</th>
+      <th>Prothrombin</th>
+      <th>Stage</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>1</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3</td>
+      <td>2</td>
+      <td>69</td>
+      <td>39</td>
+      <td>57</td>
+      <td>56</td>
+      <td>1</td>
+      <td>400</td>
+      <td>0.768941</td>
+      <td>2.562152</td>
+      <td>-2.114296</td>
+      <td>0.116853</td>
+      <td>0.642305</td>
+      <td>1.20688</td>
+      <td>1.077642</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>1</td>
+      <td>3</td>
+      <td>3</td>
+      <td>0</td>
+      <td>97</td>
+      <td>121</td>
+      <td>135</td>
+      <td>81</td>
+      <td>2</td>
+      <td>4500</td>
+      <td>0.546706</td>
+      <td>-0.481759</td>
+      <td>1.513818</td>
+      <td>2.902613</td>
+      <td>0.304654</td>
+      <td>-0.06384</td>
+      <td>0.020237</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>19</td>
+      <td>63</td>
+      <td>104</td>
+      <td>32</td>
+      <td>3</td>
+      <td>1012</td>
+      <td>1.852567</td>
+      <td>-0.413611</td>
+      <td>-0.041088</td>
+      <td>-0.473001</td>
+      <td>0.063889</td>
+      <td>1.04804</td>
+      <td>1.077642</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>1</td>
+      <td>1</td>
+      <td>0</td>
+      <td>1</td>
+      <td>3</td>
+      <td>3</td>
+      <td>1</td>
+      <td>55</td>
+      <td>130</td>
+      <td>139</td>
+      <td>52</td>
+      <td>4</td>
+      <td>1925</td>
+      <td>0.383244</td>
+      <td>-0.322748</td>
+      <td>-2.255651</td>
+      <td>2.277917</td>
+      <td>-0.426348</td>
+      <td>-0.30210</td>
+      <td>1.077642</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0</td>
+      <td>3</td>
+      <td>0</td>
+      <td>1</td>
+      <td>3</td>
+      <td>3</td>
+      <td>0</td>
+      <td>82</td>
+      <td>31</td>
+      <td>119</td>
+      <td>20</td>
+      <td>5</td>
+      <td>1504</td>
+      <td>-1.210972</td>
+      <td>0.040704</td>
+      <td>0.076708</td>
+      <td>-0.396938</td>
+      <td>0.299540</td>
+      <td>0.17442</td>
+      <td>0.020237</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+    <div class="colab-df-buttons">
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-ee36249e-f6f7-4d58-9931-a50144377358')"
+            title="Convert this dataframe to an interactive table."
+            style="display:none;">
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"/>
+  </svg>
+    </button>
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+<pre><code>&lt;script&gt;
+  const buttonEl =
+    document.querySelector('#df-ee36249e-f6f7-4d58-9931-a50144377358 button.colab-df-convert');
+  buttonEl.style.display =
+    google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+  async function convertToInteractive(key) {
+    const element = document.querySelector('#df-ee36249e-f6f7-4d58-9931-a50144377358');
+    const dataTable =
+      await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                [key], {});
+    if (!dataTable) return;
+
+    const docLinkHtml = 'Like what you see? Visit the ' +
+      '&lt;a target=&quot;_blank&quot; href=https://colab.research.google.com/notebooks/data_table.ipynb&gt;data table notebook&lt;/a&gt;'
+      + ' to learn more about interactive tables.';
+    element.innerHTML = '';
+    dataTable['output_type'] = 'display_data';
+    await google.colab.output.renderOutput(dataTable, element);
+    const docLink = document.createElement('div');
+    docLink.innerHTML = docLinkHtml;
+    element.appendChild(docLink);
+  }
+&lt;/script&gt;
+</code></pre>
+  </div>
+<div id="df-aba6008e-a7e3-4879-83ac-4aa7ae8212ec">
+  <button class="colab-df-quickchart" onclick="quickchart('df-aba6008e-a7e3-4879-83ac-4aa7ae8212ec')"
+            title="Suggest charts"
+            style="display:none;">
+<p>&lt;svg xmlns=&ldquo;<a href="http://www.w3.org/2000/svg%22">http://www.w3.org/2000/svg&quot;</a> height=&ldquo;24px&quot;viewBox=&ldquo;0 0 24 24&rdquo;
+width=&ldquo;24px&rdquo;&gt;
+<g>
+<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+</g>
+</svg>
+</button></p>
+<style>
+  .colab-df-quickchart {
+      --bg-color: #E8F0FE;
+      --fill-color: #1967D2;
+      --hover-bg-color: #E2EBFA;
+      --hover-fill-color: #174EA6;
+      --disabled-fill-color: #AAA;
+      --disabled-bg-color: #DDD;
+  }
+
+  [theme=dark] .colab-df-quickchart {
+      --bg-color: #3B4455;
+      --fill-color: #D2E3FC;
+      --hover-bg-color: #434B5C;
+      --hover-fill-color: #FFFFFF;
+      --disabled-bg-color: #3B4455;
+      --disabled-fill-color: #666;
+  }
+
+  .colab-df-quickchart {
+    background-color: var(--bg-color);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    fill: var(--fill-color);
+    height: 32px;
+    padding: 0;
+    width: 32px;
+  }
+
+  .colab-df-quickchart:hover {
+    background-color: var(--hover-bg-color);
+    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    fill: var(--button-hover-fill-color);
+  }
+
+  .colab-df-quickchart-complete:disabled,
+  .colab-df-quickchart-complete:disabled:hover {
+    background-color: var(--disabled-bg-color);
+    fill: var(--disabled-fill-color);
+    box-shadow: none;
+  }
+
+  .colab-df-spinner {
+    border: 2px solid var(--fill-color);
+    border-color: transparent;
+    border-bottom-color: var(--fill-color);
+    animation:
+      spin 1s steps(1) infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      border-color: transparent;
+      border-bottom-color: var(--fill-color);
+      border-left-color: var(--fill-color);
+    }
+    20% {
+      border-color: transparent;
+      border-left-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+    }
+    30% {
+      border-color: transparent;
+      border-left-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+      border-right-color: var(--fill-color);
+    }
+    40% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+    }
+    60% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+    }
+    80% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+      border-bottom-color: var(--fill-color);
+    }
+    90% {
+      border-color: transparent;
+      border-bottom-color: var(--fill-color);
+    }
+  }
+</style>
+  <script>
+    async function quickchart(key) {
+      const quickchartButtonEl =
+        document.querySelector('#' + key + ' button');
+      quickchartButtonEl.disabled = true;  // To prevent multiple clicks.
+      quickchartButtonEl.classList.add('colab-df-spinner');
+      try {
+        const charts = await google.colab.kernel.invokeFunction(
+            'suggestCharts', [key], {});
+      } catch (error) {
+        console.error('Error during call to suggestCharts:', error);
+      }
+      quickchartButtonEl.classList.remove('colab-df-spinner');
+      quickchartButtonEl.classList.add('colab-df-quickchart-complete');
+    }
+    (() => {
+      let quickchartButtonEl =
+        document.querySelector('#df-aba6008e-a7e3-4879-83ac-4aa7ae8212ec button');
+      quickchartButtonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+    })();
+  </script>
+</div>
+<pre><code>&lt;/div&gt;
+</code></pre>
+  </div>
+<h2 id="some-eda">Some EDA</h2>
+<p>Here, I will include the following:</p>
+<ol>
+<li>Count plot for status distribution</li>
+<li>Correlation heatmap</li>
+<li>Bar plot for feature correlation</li>
+<li>Pairplot</li>
+<li>Violin Plot for Age Distribution by Status</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># count plot</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">sns</span><span class="o">.</span><span class="n">countplot</span><span class="p">(</span><span class="n">x</span> <span class="o">=</span> <span class="s1">&#39;Status&#39;</span><span class="p">,</span> <span class="n">data</span> <span class="o">=</span> <span class="n">data</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">ax</span><span class="p">,</span> <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;lightblue&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Status&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>Text(0.5, 1.0, 'Status')
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_17_1.png" type="" alt="png"  /></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># correlation heatmap</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># correlation heatmap</span>
+</span></span><span class="line"><span class="cl"><span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">sns</span><span class="o">.</span><span class="n">heatmap</span><span class="p">(</span><span class="n">numerical_data</span><span class="o">.</span><span class="n">corr</span><span class="p">(),</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">ax</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="s1">&#39;coolwarm&#39;</span><span class="p">,</span> <span class="n">annot</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Correlation Heatmap&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>Text(0.5, 1.0, 'Correlation Heatmap')
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_18_1.png" type="" alt="png"  /></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">categorical_data</span>
+</span></span></code></pre></div>  <div id="df-58fcf830-6623-4492-a0b6-4ed95ab3ba84" class="colab-df-container">
+    <div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+<pre><code>.dataframe tbody tr th {
+    vertical-align: top;
+}
+
+.dataframe thead th {
+    text-align: right;
+}
+</code></pre>
+<p></style></p>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Status</th>
+      <th>Drug</th>
+      <th>Sex</th>
+      <th>Ascites</th>
+      <th>Hepatomegaly</th>
+      <th>Spiders</th>
+      <th>Edema</th>
+      <th>Cholesterol</th>
+      <th>Copper</th>
+      <th>Tryglicerides</th>
+      <th>Platelets</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>1</td>
+      <td>0</td>
+      <td>3</td>
+      <td>3</td>
+      <td>3</td>
+      <td>2</td>
+      <td>69</td>
+      <td>39</td>
+      <td>57</td>
+      <td>56</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>1</td>
+      <td>3</td>
+      <td>3</td>
+      <td>0</td>
+      <td>97</td>
+      <td>121</td>
+      <td>135</td>
+      <td>81</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>1</td>
+      <td>19</td>
+      <td>63</td>
+      <td>104</td>
+      <td>32</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>1</td>
+      <td>1</td>
+      <td>0</td>
+      <td>1</td>
+      <td>3</td>
+      <td>3</td>
+      <td>1</td>
+      <td>55</td>
+      <td>130</td>
+      <td>139</td>
+      <td>52</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0</td>
+      <td>3</td>
+      <td>0</td>
+      <td>1</td>
+      <td>3</td>
+      <td>3</td>
+      <td>0</td>
+      <td>82</td>
+      <td>31</td>
+      <td>119</td>
+      <td>20</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>413</th>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>45</td>
+    </tr>
+    <tr>
+      <th>414</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>49</td>
+    </tr>
+    <tr>
+      <th>415</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>26</td>
+    </tr>
+    <tr>
+      <th>416</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>116</td>
+    </tr>
+    <tr>
+      <th>417</th>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>179</td>
+    </tr>
+  </tbody>
+</table>
+<p>418 rows × 11 columns</p>
+</div>
+    <div class="colab-df-buttons">
+  <div class="colab-df-container">
+    <button class="colab-df-convert" onclick="convertToInteractive('df-58fcf830-6623-4492-a0b6-4ed95ab3ba84')"
+            title="Convert this dataframe to an interactive table."
+            style="display:none;">
+  <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960">
+    <path d="M120-120v-720h720v720H120Zm60-500h600v-160H180v160Zm220 220h160v-160H400v160Zm0 220h160v-160H400v160ZM180-400h160v-160H180v160Zm440 0h160v-160H620v160ZM180-180h160v-160H180v160Zm440 0h160v-160H620v160Z"/>
+  </svg>
+    </button>
+  <style>
+    .colab-df-container {
+      display:flex;
+      gap: 12px;
+    }
+
+    .colab-df-convert {
+      background-color: #E8F0FE;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      display: none;
+      fill: #1967D2;
+      height: 32px;
+      padding: 0 0 0 0;
+      width: 32px;
+    }
+
+    .colab-df-convert:hover {
+      background-color: #E2EBFA;
+      box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+      fill: #174EA6;
+    }
+
+    .colab-df-buttons div {
+      margin-bottom: 4px;
+    }
+
+    [theme=dark] .colab-df-convert {
+      background-color: #3B4455;
+      fill: #D2E3FC;
+    }
+
+    [theme=dark] .colab-df-convert:hover {
+      background-color: #434B5C;
+      box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+      filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+      fill: #FFFFFF;
+    }
+  </style>
+<pre><code>&lt;script&gt;
+  const buttonEl =
+    document.querySelector('#df-58fcf830-6623-4492-a0b6-4ed95ab3ba84 button.colab-df-convert');
+  buttonEl.style.display =
+    google.colab.kernel.accessAllowed ? 'block' : 'none';
+
+  async function convertToInteractive(key) {
+    const element = document.querySelector('#df-58fcf830-6623-4492-a0b6-4ed95ab3ba84');
+    const dataTable =
+      await google.colab.kernel.invokeFunction('convertToInteractive',
+                                                [key], {});
+    if (!dataTable) return;
+
+    const docLinkHtml = 'Like what you see? Visit the ' +
+      '&lt;a target=&quot;_blank&quot; href=https://colab.research.google.com/notebooks/data_table.ipynb&gt;data table notebook&lt;/a&gt;'
+      + ' to learn more about interactive tables.';
+    element.innerHTML = '';
+    dataTable['output_type'] = 'display_data';
+    await google.colab.output.renderOutput(dataTable, element);
+    const docLink = document.createElement('div');
+    docLink.innerHTML = docLinkHtml;
+    element.appendChild(docLink);
+  }
+&lt;/script&gt;
+</code></pre>
+  </div>
+<div id="df-2e963694-f304-4d39-8d00-6371849e0ac6">
+  <button class="colab-df-quickchart" onclick="quickchart('df-2e963694-f304-4d39-8d00-6371849e0ac6')"
+            title="Suggest charts"
+            style="display:none;">
+<p>&lt;svg xmlns=&ldquo;<a href="http://www.w3.org/2000/svg%22">http://www.w3.org/2000/svg&quot;</a> height=&ldquo;24px&quot;viewBox=&ldquo;0 0 24 24&rdquo;
+width=&ldquo;24px&rdquo;&gt;
+<g>
+<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+</g>
+</svg>
+</button></p>
+<style>
+  .colab-df-quickchart {
+      --bg-color: #E8F0FE;
+      --fill-color: #1967D2;
+      --hover-bg-color: #E2EBFA;
+      --hover-fill-color: #174EA6;
+      --disabled-fill-color: #AAA;
+      --disabled-bg-color: #DDD;
+  }
+
+  [theme=dark] .colab-df-quickchart {
+      --bg-color: #3B4455;
+      --fill-color: #D2E3FC;
+      --hover-bg-color: #434B5C;
+      --hover-fill-color: #FFFFFF;
+      --disabled-bg-color: #3B4455;
+      --disabled-fill-color: #666;
+  }
+
+  .colab-df-quickchart {
+    background-color: var(--bg-color);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: none;
+    fill: var(--fill-color);
+    height: 32px;
+    padding: 0;
+    width: 32px;
+  }
+
+  .colab-df-quickchart:hover {
+    background-color: var(--hover-bg-color);
+    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    fill: var(--button-hover-fill-color);
+  }
+
+  .colab-df-quickchart-complete:disabled,
+  .colab-df-quickchart-complete:disabled:hover {
+    background-color: var(--disabled-bg-color);
+    fill: var(--disabled-fill-color);
+    box-shadow: none;
+  }
+
+  .colab-df-spinner {
+    border: 2px solid var(--fill-color);
+    border-color: transparent;
+    border-bottom-color: var(--fill-color);
+    animation:
+      spin 1s steps(1) infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      border-color: transparent;
+      border-bottom-color: var(--fill-color);
+      border-left-color: var(--fill-color);
+    }
+    20% {
+      border-color: transparent;
+      border-left-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+    }
+    30% {
+      border-color: transparent;
+      border-left-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+      border-right-color: var(--fill-color);
+    }
+    40% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+      border-top-color: var(--fill-color);
+    }
+    60% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+    }
+    80% {
+      border-color: transparent;
+      border-right-color: var(--fill-color);
+      border-bottom-color: var(--fill-color);
+    }
+    90% {
+      border-color: transparent;
+      border-bottom-color: var(--fill-color);
+    }
+  }
+</style>
+  <script>
+    async function quickchart(key) {
+      const quickchartButtonEl =
+        document.querySelector('#' + key + ' button');
+      quickchartButtonEl.disabled = true;  // To prevent multiple clicks.
+      quickchartButtonEl.classList.add('colab-df-spinner');
+      try {
+        const charts = await google.colab.kernel.invokeFunction(
+            'suggestCharts', [key], {});
+      } catch (error) {
+        console.error('Error during call to suggestCharts:', error);
+      }
+      quickchartButtonEl.classList.remove('colab-df-spinner');
+      quickchartButtonEl.classList.add('colab-df-quickchart-complete');
+    }
+    (() => {
+      let quickchartButtonEl =
+        document.querySelector('#df-2e963694-f304-4d39-8d00-6371849e0ac6 button');
+      quickchartButtonEl.style.display =
+        google.colab.kernel.accessAllowed ? 'block' : 'none';
+    })();
+  </script>
+</div>
+  <div id="id_06dc2c7a-1985-4378-b107-6322d96a87b1">
+    <style>
+      .colab-df-generate {
+        background-color: #E8F0FE;
+        border: none;
+        border-radius: 50%;
+        cursor: pointer;
+        display: none;
+        fill: #1967D2;
+        height: 32px;
+        padding: 0 0 0 0;
+        width: 32px;
+      }
+<pre><code>  .colab-df-generate:hover {
+    background-color: #E2EBFA;
+    box-shadow: 0px 1px 2px rgba(60, 64, 67, 0.3), 0px 1px 3px 1px rgba(60, 64, 67, 0.15);
+    fill: #174EA6;
+  }
+
+  [theme=dark] .colab-df-generate {
+    background-color: #3B4455;
+    fill: #D2E3FC;
+  }
+
+  [theme=dark] .colab-df-generate:hover {
+    background-color: #434B5C;
+    box-shadow: 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
+    filter: drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.3));
+    fill: #FFFFFF;
+  }
+&lt;/style&gt;
+&lt;button class=&quot;colab-df-generate&quot; onclick=&quot;generateWithVariable('categorical_data')&quot;
+        title=&quot;Generate code using this dataframe.&quot;
+        style=&quot;display:none;&quot;&gt;
+</code></pre>
+<p>&lt;svg xmlns=&ldquo;<a href="http://www.w3.org/2000/svg%22">http://www.w3.org/2000/svg&quot;</a> height=&ldquo;24px&quot;viewBox=&ldquo;0 0 24 24&rdquo;
+width=&ldquo;24px&rdquo;&gt;
+<path d="M7,19H8.4L18.45,9,17,7.55,7,17.6ZM5,21V16.75L18.45,3.32a2,2,0,0,1,2.83,0l1.4,1.43a1.91,1.91,0,0,1,.58,1.4,1.91,1.91,0,0,1-.58,1.4L9.25,21ZM18.45,9,17,7.55Zm-12,3A5.31,5.31,0,0,0,4.9,8.1,5.31,5.31,0,0,0,1,6.5,5.31,5.31,0,0,0,4.9,4.9,5.31,5.31,0,0,0,6.5,1,5.31,5.31,0,0,0,8.1,4.9,5.31,5.31,0,0,0,12,6.5,5.46,5.46,0,0,0,6.5,12Z"/>
+</svg>
+</button>
+<script>
+(() =&gt; {
+const buttonEl =
+document.querySelector(&rsquo;#id_06dc2c7a-1985-4378-b107-6322d96a87b1 button.colab-df-generate&rsquo;);
+buttonEl.style.display =
+google.colab.kernel.accessAllowed ? &lsquo;block&rsquo; : &rsquo;none&rsquo;;</p>
+<pre><code>  buttonEl.onclick = () =&gt; {
+    google.colab.notebook.generateWithVariable('categorical_data');
+  }
+  })();
+&lt;/script&gt;
+</code></pre>
+  </div>
+<pre><code>&lt;/div&gt;
+</code></pre>
+  </div>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># calculate correlations with the target variable</span>
+</span></span><span class="line"><span class="cl"><span class="n">correlations</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">drop</span><span class="p">([</span><span class="s1">&#39;ID&#39;</span><span class="p">,</span> <span class="s1">&#39;N_Days&#39;</span><span class="p">,</span> <span class="s1">&#39;Status&#39;</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">corrwith</span><span class="p">(</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;Status&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">ascending</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># generate colors</span>
+</span></span><span class="line"><span class="cl"><span class="n">n_features</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">correlations</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">colors</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">rainbow</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">n_features</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># plot horizontal bar plot for feature correlations with the target</span>
+</span></span><span class="line"><span class="cl"><span class="n">correlations</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">barh</span><span class="p">(</span><span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Feature Correlations with the Target&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Correlation&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Feature&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>Text(0, 0.5, 'Feature')
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_20_1.png" type="" alt="png"  /></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># pairplot</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># first, take care of the warning:</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># FutureWarning: use_inf_as_na option is deprecated and will be removed</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># in a future version. Convert inf values to NaN before operating instead.</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="o">.</span><span class="n">replace</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># there are too many features, so we only plot some of them</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># we have previously assigned the correlations and sorted them</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># so now we select the top features</span>
+</span></span><span class="line"><span class="cl"><span class="n">top_features</span> <span class="o">=</span> <span class="n">correlations</span><span class="o">.</span><span class="n">index</span><span class="p">[:</span><span class="mi">6</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">selected_features</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">top_features</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;Status&#39;</span><span class="p">]]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">top_features</span><span class="o">.</span><span class="n">to_list</span><span class="p">())</span>
+</span></span><span class="line"><span class="cl"><span class="n">sns</span><span class="o">.</span><span class="n">pairplot</span><span class="p">(</span><span class="n">selected_features</span><span class="p">,</span> <span class="n">hue</span> <span class="o">=</span> <span class="s1">&#39;Status&#39;</span><span class="p">);</span>
+</span></span></code></pre></div><pre><code>['Bilirubin', 'Edema', 'Prothrombin', 'Albumin', 'Stage', 'Age']
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_21_1.png" type="" alt="png"  /></p>
+<h3 id="inference">Inference</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># define the bayesian model</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">cirrhosis_classification_model</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># define priors</span>
+</span></span><span class="line"><span class="cl">    <span class="n">alpha</span> <span class="o">=</span> <span class="n">numpyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="n">dist</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">beta</span> <span class="o">=</span> <span class="n">numpyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="s1">&#39;beta&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                          <span class="n">dist</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">                              <span class="n">jnp</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]),</span>
+</span></span><span class="line"><span class="cl">                              <span class="n">jnp</span><span class="o">.</span><span class="n">ones</span><span class="p">([</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]))</span>
+</span></span><span class="line"><span class="cl">                          <span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">logits</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">beta</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># define likelihood</span>
+</span></span><span class="line"><span class="cl">    <span class="k">with</span> <span class="n">numpyro</span><span class="o">.</span><span class="n">plate</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+</span></span><span class="line"><span class="cl">        <span class="n">numpyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="n">dist</span><span class="o">.</span><span class="n">Bernoulli</span><span class="p">(</span><span class="n">logits</span> <span class="o">=</span> <span class="n">logits</span><span class="p">),</span> <span class="n">obs</span> <span class="o">=</span> <span class="n">y</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Prepare the data</span>
+</span></span><span class="line"><span class="cl"><span class="n">X</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">top_features</span><span class="o">.</span><span class="n">to_list</span><span class="p">()]</span><span class="o">.</span><span class="n">values</span>
+</span></span><span class="line"><span class="cl"><span class="n">y</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;Status&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">X</span><span class="o">.</span><span class="n">shape</span>
+</span></span></code></pre></div><pre><code>(418, 6)
+</code></pre>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">numpyro</span><span class="o">.</span><span class="n">render_model</span><span class="p">(</span><span class="n">cirrhosis_classification_model</span><span class="p">,</span> <span class="n">model_args</span> <span class="o">=</span> <span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+</span></span></code></pre></div><p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_25_0.svg" type="" alt="svg"  /></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">mcmc</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">NUTS</span><span class="p">(</span><span class="n">cirrhosis_classification_model</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">            <span class="n">num_warmup</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">num_samples</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">num_chains</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mcmc</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">mcmc</span><span class="o">.</span><span class="n">print_summary</span><span class="p">()</span>
+</span></span></code></pre></div><pre><code>  0%|          | 0/2000 [00:00&lt;?, ?it/s]
+
+
+
+  0%|          | 0/2000 [00:00&lt;?, ?it/s]
+
+
+
+  0%|          | 0/2000 [00:00&lt;?, ?it/s]
+
+
+
+  0%|          | 0/2000 [00:00&lt;?, ?it/s]
+
+
+
+                mean       std    median      5.0%     95.0%     n_eff     r_hat
+     alpha     -0.52      0.14     -0.52     -0.73     -0.29   5265.98      1.00
+   beta[0]      1.27      0.21      1.26      0.91      1.61   5451.91      1.00
+   beta[1]      0.55      0.30      0.54      0.04      1.03   5430.33      1.00
+   beta[2]      0.45      0.14      0.44      0.21      0.66   5611.14      1.00
+   beta[3]     -0.11      0.13     -0.11     -0.33      0.10   5962.15      1.00
+   beta[4]      0.25      0.13      0.25      0.04      0.46   5749.42      1.00
+   beta[5]      0.52      0.13      0.52      0.33      0.74   6640.10      1.00
+
+Number of divergences: 0
+</code></pre>
+<h3 id="prior-predictive-check">Prior Predictive Check</h3>
+<p>Need to decide if this is needed</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">trace</span> <span class="o">=</span> <span class="n">az</span><span class="o">.</span><span class="n">from_numpyro</span><span class="p">(</span><span class="n">mcmc</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_trace</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">compact</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_pair</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">divergences</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></span></code></pre></div><pre><code>/usr/local/lib/python3.10/dist-packages/arviz/utils.py:184: NumbaDeprecationWarning: The 'nopython' keyword argument was not supplied to the 'numba.jit' decorator. The implicit default value for this argument is currently False, but it will be changed to True in Numba 0.59.0. See https://numba.readthedocs.io/en/stable/reference/deprecation.html#deprecation-of-object-mode-fall-back-behaviour-when-using-jit for details.
+  numba_fn = numba.jit(**self.kwargs)(self.function)
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_28_1.png" type="" alt="png"  /></p>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_28_2.png" type="" alt="png"  /></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">prior</span> <span class="o">=</span> <span class="n">Predictive</span><span class="p">(</span><span class="n">cirrhosis_classification_model</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># get the prior samples</span>
+</span></span><span class="line"><span class="cl"><span class="n">y_prior</span> <span class="o">=</span> <span class="n">prior</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span> <span class="n">X</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># convert to InferenceData</span>
+</span></span><span class="line"><span class="cl"><span class="n">prior_data</span> <span class="o">=</span> <span class="n">az</span><span class="o">.</span><span class="n">from_numpyro</span><span class="p">(</span><span class="n">mcmc</span><span class="p">,</span> <span class="n">prior</span> <span class="o">=</span> <span class="n">y_prior</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># plot the prior samples</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_ppc</span><span class="p">(</span><span class="n">prior_data</span><span class="p">,</span> <span class="n">group</span> <span class="o">=</span> <span class="s1">&#39;prior&#39;</span><span class="p">,</span> <span class="n">observed</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>&lt;Axes: xlabel='y / y'&gt;
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_29_1.png" type="" alt="png"  /></p>
+<h3 id="posterior-predictive-check">Posterior Predictive Check</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># https://num.pyro.ai/en/latest/utilities.html#numpyro.infer.util.Predictive</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># get samples from the posterior</span>
+</span></span><span class="line"><span class="cl"><span class="n">posterior_samples</span> <span class="o">=</span> <span class="n">mcmc</span><span class="o">.</span><span class="n">get_samples</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># define a Predictive class</span>
+</span></span><span class="line"><span class="cl"><span class="n">predictive</span> <span class="o">=</span> <span class="n">Predictive</span><span class="p">(</span><span class="n">cirrhosis_classification_model</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                        <span class="n">posterior_samples</span> <span class="o">=</span> <span class="n">posterior_samples</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># get the samples</span>
+</span></span><span class="line"><span class="cl"><span class="n">y_pred</span> <span class="o">=</span> <span class="n">predictive</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span> <span class="n">X</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># convert to inference data</span>
+</span></span><span class="line"><span class="cl"><span class="n">posterior_data</span> <span class="o">=</span> <span class="n">az</span><span class="o">.</span><span class="n">from_numpyro</span><span class="p">(</span><span class="n">mcmc</span><span class="p">,</span> <span class="n">posterior_predictive</span> <span class="o">=</span> <span class="n">y_pred</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_ppc</span><span class="p">(</span><span class="n">data</span> <span class="o">=</span> <span class="n">posterior_data</span><span class="p">,</span> <span class="n">group</span> <span class="o">=</span> <span class="s1">&#39;posterior&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>&lt;Axes: xlabel='y / y'&gt;
+
+
+
+/usr/local/lib/python3.10/dist-packages/IPython/core/events.py:89: UserWarning: Creating legend with loc=&quot;best&quot; can be slow with large amounts of data.
+  func(*args, **kwargs)
+/usr/local/lib/python3.10/dist-packages/IPython/core/pylabtools.py:151: UserWarning: Creating legend with loc=&quot;best&quot; can be slow with large amounts of data.
+  fig.canvas.print_figure(bytes_io, **kw)
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_33_2.png" type="" alt="png"  /></p>
+<h3 id="plot-the-sample-sigmoid-functions">Plot the Sample Sigmoid Functions</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">X</span><span class="o">.</span><span class="n">shape</span>
+</span></span></code></pre></div><pre><code>(418, 6)
+</code></pre>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># define the sigmoid function</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">sigmoid</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">alpha</span> <span class="o">+</span> <span class="n">jnp</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">beta</span><span class="p">))))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># generate a range of X values for plotting the sigmoid functions</span>
+</span></span><span class="line"><span class="cl"><span class="n">x_range</span> <span class="o">=</span> <span class="n">jnp</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">X</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="mi">100</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># plot the data</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span> <span class="o">=</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">X</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">            <span class="n">y</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;red&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">label</span> <span class="o">=</span> <span class="s1">&#39;Data&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">            <span class="n">edgecolors</span> <span class="o">=</span> <span class="s1">&#39;black&#39;</span><span class="p">)</span>  <span class="c1"># bilirubin vs status</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># plot sigmoid functions from the posterior samples</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">x_range</span><span class="p">)):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">alpha_sample</span> <span class="o">=</span> <span class="n">posterior_samples</span><span class="p">[</span><span class="s1">&#39;alpha&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">beta_sample</span> <span class="o">=</span> <span class="n">posterior_samples</span><span class="p">[</span><span class="s1">&#39;beta&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">y_sample</span> <span class="o">=</span> <span class="n">sigmoid</span><span class="p">(</span><span class="n">x_range</span><span class="p">,</span> <span class="n">alpha_sample</span><span class="p">,</span> <span class="n">beta_sample</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">plt</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x_range</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">             <span class="n">y_sample</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">             <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;blue&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">             <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">             <span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="n">top_features</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Status&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Cirrhosis Classification Model&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+</span></span></code></pre></div><pre><code>&lt;matplotlib.legend.Legend at 0x7af77c1ceb60&gt;
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_36_1.png" type="" alt="png"  /></p>
+<h3 id="predictions">Predictions</h3>
+<ol>
+<li>Generate Predictions: Use the posterior samples to generate predicted probabilities for each data point.</li>
+<li>Convert Probabilities to Binary Predictions: Use a threshold (e.g. 0.5) to convert probabilities into binary outcomes</li>
+<li>Compare Predictions with Actual Data&rdquo; Create a confusion matrix and calculate metrics like accuracy, precision, recall and F1-score</li>
+</ol>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># generate predictions</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># use sigmoid function defined previously</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># generate predictions using the posterior samples</span>
+</span></span><span class="line"><span class="cl"><span class="n">n_samples</span> <span class="o">=</span> <span class="n">posterior_samples</span><span class="p">[</span><span class="s1">&#39;alpha&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># calculate the mean probability across posterior samples</span>
+</span></span><span class="line"><span class="cl"><span class="n">predicted_probabilities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="p">[</span><span class="n">sigmoid</span><span class="p">(</span><span class="n">X</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">             <span class="n">posterior_samples</span><span class="p">[</span><span class="s1">&#39;alpha&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">             <span class="n">posterior_samples</span><span class="p">[</span><span class="s1">&#39;beta&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">             <span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_samples</span><span class="p">)],</span>
+</span></span><span class="line"><span class="cl">             <span class="n">axis</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># convert probabilities to binary predictions</span>
+</span></span><span class="line"><span class="cl"><span class="n">threshold</span> <span class="o">=</span> <span class="mf">0.5</span>
+</span></span><span class="line"><span class="cl"><span class="n">predicted_classes</span> <span class="o">=</span> <span class="p">(</span><span class="n">predicted_probabilities</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># compare predicted classes with true classes</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kn">from</span> <span class="nn">sklearn.metrics</span> <span class="kn">import</span> <span class="n">confusion_matrix</span><span class="p">,</span> <span class="n">accuracy_score</span><span class="p">,</span> <span class="n">precision_score</span><span class="p">,</span> <span class="n">recall_score</span><span class="p">,</span> <span class="n">f1_score</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># actual labels</span>
+</span></span><span class="line"><span class="cl"><span class="n">y_true</span> <span class="o">=</span> <span class="n">y</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># confusion matrix</span>
+</span></span><span class="line"><span class="cl"><span class="n">conf_matrix</span> <span class="o">=</span> <span class="n">confusion_matrix</span><span class="p">(</span><span class="n">y_true</span><span class="p">,</span> <span class="n">predicted_classes</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">sns</span><span class="o">.</span><span class="n">heatmap</span><span class="p">(</span><span class="n">conf_matrix</span><span class="p">,</span> <span class="n">annot</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">fmt</span> <span class="o">=</span> <span class="s1">&#39;d&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>&lt;Axes: &gt;
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_40_1.png" type="" alt="png"  /></p>
+<h1 id="survival-analysis">Survival Analysis</h1>
+<p>First, will use uncensored data, i.e. the data that registered realized observations. In this case, a realized observation is a deceased subject.</p>
+<h3 id="define-the-model">Define the Model</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">survival_model</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># define priors</span>
+</span></span><span class="line"><span class="cl">    <span class="n">k</span> <span class="o">=</span> <span class="n">numpyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">dist</span><span class="o">.</span><span class="n">Exponential</span><span class="p">(</span><span class="mf">1.0</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">lam</span> <span class="o">=</span> <span class="n">numpyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="s1">&#39;lam&#39;</span><span class="p">,</span> <span class="n">dist</span><span class="o">.</span><span class="n">Exponential</span><span class="p">(</span><span class="mf">1.0</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># likelihood</span>
+</span></span><span class="line"><span class="cl">    <span class="k">with</span> <span class="n">numpyro</span><span class="o">.</span><span class="n">plate</span><span class="p">(</span><span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+</span></span><span class="line"><span class="cl">        <span class="n">numpyro</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="n">dist</span><span class="o">.</span><span class="n">Weibull</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">lam</span><span class="p">),</span> <span class="n">obs</span> <span class="o">=</span> <span class="n">data</span><span class="p">)</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># prepare the data</span>
+</span></span><span class="line"><span class="cl"><span class="n">X_survival</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;Status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">][</span><span class="s1">&#39;N_Days&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+</span></span><span class="line"><span class="cl"><span class="n">y_survival_observed</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="p">[</span><span class="s1">&#39;Status&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">][</span><span class="s1">&#39;Status&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># fit the model</span>
+</span></span><span class="line"><span class="cl"><span class="n">mcmc_survival</span> <span class="o">=</span> <span class="n">MCMC</span><span class="p">(</span><span class="n">NUTS</span><span class="p">(</span><span class="n">survival_model</span><span class="p">),</span>
+</span></span><span class="line"><span class="cl">                     <span class="n">num_warmup</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                     <span class="n">num_samples</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                     <span class="n">num_chains</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">mcmc_survival</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span> <span class="n">data</span> <span class="o">=</span> <span class="n">X_survival</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">mcmc_survival</span><span class="o">.</span><span class="n">print_summary</span><span class="p">()</span>
+</span></span></code></pre></div><pre><code>  0%|          | 0/2000 [00:00&lt;?, ?it/s]
+
+
+
+  0%|          | 0/2000 [00:00&lt;?, ?it/s]
+
+
+
+  0%|          | 0/2000 [00:00&lt;?, ?it/s]
+
+
+
+  0%|          | 0/2000 [00:00&lt;?, ?it/s]
+
+
+
+                mean       std    median      5.0%     95.0%     n_eff     r_hat
+         k     48.36      8.01     47.74     35.65     61.43   1327.52      1.00
+       lam      0.25      0.02      0.25      0.22      0.28   1202.80      1.00
+
+Number of divergences: 0
+</code></pre>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">survival_prior</span> <span class="o">=</span> <span class="n">Predictive</span><span class="p">(</span><span class="n">survival_model</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                 <span class="n">num_samples</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">survival_y_prior</span> <span class="o">=</span> <span class="n">survival_prior</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span> <span class="n">X_survival</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">survival_prior_data</span> <span class="o">=</span> <span class="n">az</span><span class="o">.</span><span class="n">from_numpyro</span><span class="p">(</span><span class="n">mcmc_survival</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                          <span class="n">prior</span> <span class="o">=</span> <span class="n">survival_y_prior</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_ppc</span><span class="p">(</span><span class="n">survival_prior_data</span><span class="p">,</span> <span class="n">group</span> <span class="o">=</span> <span class="s1">&#39;prior&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>&lt;Axes: xlabel='y / y'&gt;
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_46_1.png" type="" alt="png"  /></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">survival_posterior_samples</span> <span class="o">=</span> <span class="n">mcmc_survival</span><span class="o">.</span><span class="n">get_samples</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">survival_predictive</span> <span class="o">=</span> <span class="n">Predictive</span><span class="p">(</span><span class="n">survival_model</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                 <span class="n">posterior_samples</span> <span class="o">=</span> <span class="n">survival_posterior_samples</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">survival_y_pred</span> <span class="o">=</span> <span class="n">survival_predictive</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">PRNGKey</span><span class="p">(</span><span class="mi">42</span><span class="p">),</span> <span class="n">X_survival</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">survival_posterior_data</span> <span class="o">=</span> <span class="n">az</span><span class="o">.</span><span class="n">from_numpyro</span><span class="p">(</span><span class="n">mcmc_survival</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                          <span class="n">posterior_predictive</span> <span class="o">=</span> <span class="n">survival_y_pred</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_ppc</span><span class="p">(</span><span class="n">survival_posterior_data</span><span class="p">,</span> <span class="n">group</span> <span class="o">=</span> <span class="s1">&#39;posterior&#39;</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>&lt;Axes: xlabel='y / y'&gt;
+</code></pre>
+<p><img loading="lazy" src="/images/20240924_NumPyro_LogReg_Surv_Analysis/output_47_1.png" type="" alt="png"  /></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"></code></pre></div>]]></content:encoded>
+    </item>
+    
+  </channel>
+</rss>

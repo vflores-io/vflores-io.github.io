@@ -80,32 +80,8 @@
 </span></span><span class="line"><span class="cl"><span class="n">test_filepaths</span> <span class="o">=</span> <span class="p">[</span><span class="n">abspath</span><span class="p">(</span><span class="n">joinpath</span><span class="p">(</span><span class="n">test_data_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">))</span> <span class="k">for</span> <span class="n">filename</span> <span class="k">in</span> <span class="n">test_labels_df</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="p">]</span>
 </span></span><span class="line"><span class="cl"><span class="n">val_filepaths</span> <span class="o">=</span> <span class="p">[</span><span class="n">abspath</span><span class="p">(</span><span class="n">joinpath</span><span class="p">(</span><span class="n">val_data_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">))</span> <span class="k">for</span> <span class="n">filename</span> <span class="k">in</span> <span class="n">val_labels_df</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="p">]</span>
 </span></span></code></pre></div><pre><code>110-element Vector{String}:
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 103 bytes ⋯ [22m[39m&quot;18cd56a2ae74d2ffc8fdc89cbb.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 103 bytes ⋯ [22m[39m&quot;6625698d9d2166cdafe47e6d17.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 106 bytes ⋯ [22m[39m&quot;99a04518d4d80adea474bbe89a.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 104 bytes ⋯ [22m[39m&quot;97c687e09bf5981b9bb729304f.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 103 bytes ⋯ [22m[39m&quot;be307e32ffc3c27ee7f49305b6.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 106 bytes ⋯ [22m[39m&quot;fabcbee5c45195a0e34918a0a1.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 105 bytes ⋯ [22m[39m&quot;d2b7179bdf5554ea40998d9d93.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 105 bytes ⋯ [22m[39m&quot;bae261f0ca148e055d0935580e.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 102 bytes ⋯ [22m[39m&quot;a84e5fa1564b409f26ea9ed0c9.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 106 bytes ⋯ [22m[39m&quot;4664e5d811b55a69cac9823a87.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 103 bytes ⋯ [22m[39m&quot;7fccb36f778a5cae5eda1e6cfc.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 104 bytes ⋯ [22m[39m&quot;824395bcb65dc5b8ecd013ab0d.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 106 bytes ⋯ [22m[39m&quot;4e1297350b8f05b54f387e002a.jpg&quot;
+ 
  ⋮
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 105 bytes ⋯ [22m[39m&quot;59f6a427983efd9308ddddeea7.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 103 bytes ⋯ [22m[39m&quot;8768c7f0096dc16431b41c8367.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 103 bytes ⋯ [22m[39m&quot;aa5d35bce083f1505a7b1e727e.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 104 bytes ⋯ [22m[39m&quot;5c4e68b8fba7c493f0b8bfd7bc.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 103 bytes ⋯ [22m[39m&quot;05ac086aa8b99cb8b942b1af16.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 102 bytes ⋯ [22m[39m&quot;db819e63e4b80c5caed5a07c47.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 103 bytes ⋯ [22m[39m&quot;b96481186b7376b108e9546306.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 105 bytes ⋯ [22m[39m&quot;d5aaf15e5d105aa82e24a85eff.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 103 bytes ⋯ [22m[39m&quot;5e29bd734c42a6b7b2267fb31e.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 104 bytes ⋯ [22m[39m&quot;0628948e8f68a77c821746f0b3.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 103 bytes ⋯ [22m[39m&quot;4dee18ead713b297b872642c25.jpg&quot;
- &quot;H:\\My Drive\\Projects\\Coding\\Por&quot;[93m[1m ⋯ 104 bytes ⋯ [22m[39m&quot;eeffac7d65a76096d457bd5949.jpg&quot;
 </code></pre>
 <h3 id="data-exploration">Data Exploration</h3>
 <p>As usual, we take a look at the data to understand what we are working with.</p>
