@@ -1,5 +1,5 @@
 baseURL: "https://vflores-io.github.io/"
-title: Victor Flores
+title: Victor Flores, PhD
 theme: PaperModX
 
 enableRobotsTXT: true
@@ -69,7 +69,7 @@ params:
 
     # home-info mode
     homeInfoParams:
-        Title: " Welcome to my Portfolio "
+        Title: " Project Portfolio "
         # Content: " "
 
     socialIcons:
