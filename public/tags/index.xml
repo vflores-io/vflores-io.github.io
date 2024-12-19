@@ -6,7 +6,87 @@
     <description>Recent content in Tags on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Tue, 24 Sep 2024 14:12:51 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 18 Dec 2024 09:52:15 +0700</lastBuildDate><atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Bayesian Filter</title>
+      <link>http://localhost:1313/tags/bayesian-filter/</link>
+      <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/bayesian-filter/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Civil Engineering</title>
+      <link>http://localhost:1313/tags/civil-engineering/</link>
+      <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/civil-engineering/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Dynamical Analysis</title>
+      <link>http://localhost:1313/tags/dynamical-analysis/</link>
+      <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/dynamical-analysis/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Julia</title>
+      <link>http://localhost:1313/tags/julia/</link>
+      <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/julia/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Kalman Filter</title>
+      <link>http://localhost:1313/tags/kalman-filter/</link>
+      <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/kalman-filter/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>RxInfer</title>
+      <link>http://localhost:1313/tags/rxinfer/</link>
+      <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/rxinfer/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Structural Analysis</title>
+      <link>http://localhost:1313/tags/structural-analysis/</link>
+      <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/structural-analysis/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Structural Dynamics</title>
+      <link>http://localhost:1313/tags/structural-dynamics/</link>
+      <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/structural-dynamics/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
     <item>
       <title>Bayesian Classification</title>
       <link>http://localhost:1313/tags/bayesian-classification/</link>
@@ -133,16 +213,6 @@
       <pubDate>Tue, 21 May 2024 22:38:29 +0800</pubDate>
       
       <guid>http://localhost:1313/tags/flux.jl/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-    </item>
-    
-    <item>
-      <title>Julia</title>
-      <link>http://localhost:1313/tags/julia/</link>
-      <pubDate>Tue, 21 May 2024 22:38:29 +0800</pubDate>
-      
-      <guid>http://localhost:1313/tags/julia/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>

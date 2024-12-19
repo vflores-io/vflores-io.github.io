@@ -1,615 +1,749 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
-  <channel>
-    <title>Julia on Victor Flores, PhD</title>
-    <link>http://localhost:1313/tags/julia/</link>
-    <description>Recent content in Julia on Victor Flores, PhD</description>
-    <generator>Hugo -- gohugo.io</generator>
-    <language>en</language>
-    <lastBuildDate>Wed, 18 Dec 2024 09:52:15 +0700</lastBuildDate><atom:link href="http://localhost:1313/tags/julia/index.xml" rel="self" type="application/rss+xml" />
-    <item>
-      <title>Augmented Kalman Filter and RxInfer for Structural Dynamics</title>
-      <link>http://localhost:1313/posts/20241219_rxinfer_structuraldynamics/structural_dynamics_example_4dof_no_filter_portfolio/</link>
-      <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
-      
-      <guid>http://localhost:1313/posts/20241219_rxinfer_structuraldynamics/structural_dynamics_example_4dof_no_filter_portfolio/</guid>
-      <description>Implementing an AKF in Julia and RxInfer for Structural Dyanmics analysis.</description>
-      <content:encoded><![CDATA[<h1 id="augmented-kalman-filter-and-rxinfer-for-structural-dynamics">Augmented Kalman Filter and RxInfer for Structural Dynamics</h1>
-<h2 id="state-and-input-estimation-with-rxinfer">State and Input Estimation with RxInfer</h2>
-<p>In this example, we estimate system states and unknown input forces for a simple <strong>structural dynamical system</strong> using the Augmented Kalman Filter (AKF) smoother in <strong>RxInfer</strong>.</p>
-<p>The system can be described using a <strong>state-space model</strong>:
++++
+title = 'Augmented Kalman Filter and RxInfer for Structural Dynamics'
+date = 2024-12-18T09:52:15+07:00
+draft = false
+summary = "Implementing an AKF in Julia and RxInfer for Structural Dyanmics analysis."
+tags = ["RxInfer", "Structural Dynamics", "Kalman Filter", "Bayesian Filter", "Julia", "Civil Engineering", "Structural Analysis", "Dynamical Analysis"]
++++
+
+## State and Input Estimation with RxInfer
+
+In this example, we estimate system states and unknown input forces for a simple **structural dynamical system** using the Augmented Kalman Filter (AKF) smoother in **RxInfer**.
+
+The system can be described using a **state-space model**:
 $$
 x[k+1] \sim \mathcal{N}(A x[k] + B p[k], Q),
 $$
 $$
 y[k] \sim \mathcal{N}(G x[k] + J p[k], R),
 $$
-where $ x[k] $ are the states, $ p[k] $ are the unknown inputs, and $ y[k] $ are noisy measurements.</p>
-<p>We simulate the system, generate synthetic observations, and estimate the states and inputs using <strong>RxInfer.jl</strong>.</p>
-<h3 id="data-environment">Data Environment</h3>
-<p>We start by constructing a <code>StructuralModelData</code> data structure that stores all relevant information for the structural dynamics model and its simulation environment. This data structure organizes the system&rsquo;s properties, simulation parameters, and results for easy access and manipulation later on by <code>RxInfer</code>. It will later become clear what each field means!</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">LinearAlgebra</span><span class="p">,</span> <span class="n">Statistics</span><span class="p">,</span> <span class="n">Random</span><span class="p">,</span> <span class="n">Plots</span>
-</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># define a data structure for the structural model environment</span>
-</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="kt">StructuralModelData</span>
-</span></span><span class="line"><span class="cl">    <span class="n">t</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Any</span><span class="p">}</span>                      <span class="c"># expects StepRangeLen</span>
-</span></span><span class="line"><span class="cl">    <span class="n">ndof</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Int64</span><span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">nf</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Int64</span><span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">N_data</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Int64</span><span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_meas</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Vector</span><span class="p">{</span><span class="kt">Vector</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">A_aug</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">G_aug</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">G_aug_fullfield</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Q_akf</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">R</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">LinearAlgebra</span><span class="o">.</span><span class="kt">Diagonal</span><span class="p">{</span><span class="kt">Float64</span><span class="p">,</span> <span class="kt">Vector</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">x_real</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_real</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">p_real</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><p>The dynamics of a structural system are governed by its <strong>mass</strong> ($ M $), <strong>stiffness</strong> ($ K $), and <strong>damping</strong> ($ C $) matrices, leading to the equation of motion:</p>
-<p>$$
-M \ddot{x}(t) + C \dot{x}(t) + K x(t) = p(t),
-$$</p>
-<p>where $ x(t) $ represents the displacements at each degree of freedom, and $ (t) $ is the external force applied to the system.</p>
-<p>For this example, we consider a simplified <strong>4-floor shear building model</strong> with <strong>4 degrees of freedom (DOF)</strong>. This toy model captures the essential dynamics of a multi-story structure while remaining computationally manageable. The system matrices are defined as follows:</p>
-<ul>
-<li>$ M $ is the diagonal mass matrix representing the lumped masses at each floor,</li>
-<li>$ K $ is the tridiagonal stiffness matrix representing inter-floor lateral stiffness, and</li>
-<li>$ C $ is the proportional damping matrix reflecting energy dissipation.</li>
-</ul>
-<p>The structural system is depicted below:</p>
-<p></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># define the structural system matrices</span>
-</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="kt">StructuralMatrices</span>
-</span></span><span class="line"><span class="cl">    <span class="n">M</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">K</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">C</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">M</span> <span class="o">=</span> <span class="n">I</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">K</span> <span class="o">=</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">    <span class="mi">2</span>  <span class="o">-</span><span class="mi">1</span>   <span class="mi">0</span>    <span class="mi">0</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">   <span class="o">-</span><span class="mi">1</span>   <span class="mi">2</span>  <span class="o">-</span><span class="mi">1</span>    <span class="mi">0</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="mi">0</span>  <span class="o">-</span><span class="mi">1</span>   <span class="mi">2</span>   <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="mi">0</span>   <span class="mi">0</span>  <span class="o">-</span><span class="mi">1</span>    <span class="mi">1</span>
-</span></span><span class="line"><span class="cl"><span class="p">]</span> <span class="o">*</span> <span class="mf">1e3</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">C</span> <span class="o">=</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">    <span class="mi">2</span>   <span class="o">-</span><span class="mi">1</span>    <span class="mi">0</span>    <span class="mi">0</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">   <span class="o">-</span><span class="mi">1</span>    <span class="mi">2</span>   <span class="o">-</span><span class="mi">1</span>    <span class="mi">0</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="mi">0</span>   <span class="o">-</span><span class="mi">1</span>    <span class="mi">2</span>   <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="mi">0</span>    <span class="mi">0</span>   <span class="o">-</span><span class="mi">1</span>    <span class="mi">1</span>
-</span></span><span class="line"><span class="cl"><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">StructuralModel</span> <span class="o">=</span> <span class="n">StructuralMatrices</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">C</span><span class="p">);</span>
-</span></span></code></pre></div><h4 id="constructing-the-state-space-model">Constructing the State-Space Model</h4>
-<p>We convert the structural system into its <strong>discrete-time state-space form</strong> for numerical simulation. Starting from the equation of motion:</p>
-<p>$$
-M \ddot{x}(t) + C \dot{x}(t) + K x(t) = F(t),
-$$</p>
-<p>we introduce the state variable:
+where $ x[k] $ are the states, $ p[k] $ are the unknown inputs, and $ y[k] $ are noisy measurements.
+
+We simulate the system, generate synthetic observations, and estimate the states and inputs using **RxInfer.jl**.
+
+### Data Environment
+
+We start by constructing a `StructuralModelData` data structure that stores all relevant information for the structural dynamics model and its simulation environment. This data structure organizes the system's properties, simulation parameters, and results for easy access and manipulation later on by `RxInfer`. It will later become clear what each field means!
+
+
+
+```julia
+using LinearAlgebra, Statistics, Random, Plots
+```
+
+
+```julia
+# define a data structure for the structural model environment
+struct StructuralModelData
+    t::Union{Nothing, Any}                      # expects StepRangeLen
+    ndof::Union{Nothing, Int64}
+    nf::Union{Nothing, Int64}
+    N_data::Union{Nothing, Int64}
+    y_meas::Union{Nothing, Vector{Vector{Float64}}}
+    A_aug::Union{Nothing, Matrix{Float64}}
+    G_aug::Union{Nothing, Matrix{Float64}}
+    G_aug_fullfield::Union{Nothing, Matrix{Float64}}
+    Q_akf::Union{Nothing, Matrix{Float64}}
+    R::Union{Nothing, LinearAlgebra.Diagonal{Float64, Vector{Float64}}}
+    x_real::Union{Nothing, Matrix{Float64}}
+    y_real::Union{Nothing, Matrix{Float64}}
+    p_real::Union{Nothing, Matrix{Float64}}
+end
+```
+
+The dynamics of a structural system are governed by its **mass** ($ M $), **stiffness** ($ K $), and **damping** ($ C $) matrices, leading to the equation of motion:
+
 $$
-z(t) = \begin{bmatrix} x(t) \ \dot{x}(t) \end{bmatrix},
+M \ddot{x}(t) + C \dot{x}(t) + K x(t) = p(t),
+$$
+
+where $ x(t) $ represents the displacements at each degree of freedom, and $ (t) $ is the external force applied to the system.
+
+For this example, we consider a simplified **4-floor shear building model** with **4 degrees of freedom (DOF)**. This toy model captures the essential dynamics of a multi-story structure while remaining computationally manageable. The system matrices are defined as follows:
+
+- $ M $ is the diagonal mass matrix representing the lumped masses at each floor,  
+- $ K $ is the tridiagonal stiffness matrix representing inter-floor lateral stiffness, and  
+- $ C $ is the proportional damping matrix reflecting energy dissipation.
+
+The structural system is depicted below:
+
+![shear_model](/images/20241219_RxInfer_StructuralDynamics/shear_model.PNG)
+
+
+```julia
+# define the structural system matrices
+struct StructuralMatrices
+    M::Union{Nothing, Matrix{Float64}}
+    K::Union{Nothing, Matrix{Float64}}
+    C::Union{Nothing, Matrix{Float64}}
+end
+
+
+M = I(4)
+
+
+K = [
+    2  -1   0    0;
+   -1   2  -1    0;
+    0  -1   2   -1;
+    0   0  -1    1
+] * 1e3
+
+C = [
+    2   -1    0    0;
+   -1    2   -1    0;
+    0   -1    2   -1;
+    0    0   -1    1
+]
+
+StructuralModel = StructuralMatrices(M, K, C);
+```
+
+#### Constructing the State-Space Model
+
+We convert the structural system into its **discrete-time state-space form** for numerical simulation. Starting from the equation of motion:
+
+$$
+M \ddot{x}(t) + C \dot{x}(t) + K x(t) = F(t),
+$$
+
+we introduce the state variable:
+$$
+z(t) = \begin{bmatrix} x(t) \\ \dot{x}(t) \end{bmatrix},
 $$
 which allows us to express the system as:
 $$
 \dot{z}(t) = A_{\text{c}} z(t) + B_{\text{c}} p(t),
 $$
-where:</p>
-<ul>
-<li>$ A_{\text{c}} = \begin{bmatrix} 0 &amp; I \ -(M^{-1} K) &amp; -(M^{-1} C) \end{bmatrix} $</li>
-<li>$ B_{\text{c}} = \begin{bmatrix} 0 \ M^{-1} S_p \end{bmatrix} $</li>
-<li>$ S_p $ is the input selection matrix that determines where the external forces $ p(t) $ are applied.</li>
-</ul>
-<p>To perform simulations, the system is discretized using a time step $ \Delta t $ as:
+where:
+- $ A_{\text{c}} = \begin{bmatrix} 0 & I \\ -(M^{-1} K) & -(M^{-1} C) \end{bmatrix} $
+- $ B_{\text{c}} = \begin{bmatrix} 0 \\ M^{-1} S_p \end{bmatrix} $
+- $ S_p $ is the input selection matrix that determines where the external forces $ p(t) $ are applied.
+
+To perform simulations, the system is discretized using a time step $ \Delta t $ as:
 $$
 z[k+1] = A z[k] + B p[k],
 $$
-where:</p>
-<ul>
-<li>$ A = e^{A_{\text{c}} \Delta t} $ is the <strong>state transition matrix</strong>.</li>
-<li>$ B = (A - I) A_{\text{c}}^{-1} B_{\text{c}} $ is the <strong>input matrix</strong>, obtained by integrating the continuous-time system.</li>
-</ul>
-<p>This state-space representation forms the basis for propagating the system states during simulation.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># function to construct the state space model</span>
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">construct_ssm</span><span class="p">(</span><span class="n">StructuralModel</span><span class="p">,</span><span class="n">dt</span><span class="p">,</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">nf</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c"># unpack the structural model</span>
-</span></span><span class="line"><span class="cl">    <span class="n">M</span> <span class="o">=</span> <span class="n">StructuralModel</span><span class="o">.</span><span class="n">M</span>
-</span></span><span class="line"><span class="cl">    <span class="n">K</span> <span class="o">=</span> <span class="n">StructuralModel</span><span class="o">.</span><span class="n">K</span>
-</span></span><span class="line"><span class="cl">    <span class="n">C</span> <span class="o">=</span> <span class="n">StructuralModel</span><span class="o">.</span><span class="n">C</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="n">Sp</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="n">ndof</span><span class="p">,</span> <span class="n">nf</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Sp</span><span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">Z</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="n">ndof</span><span class="p">,</span> <span class="n">ndof</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Id</span> <span class="o">=</span> <span class="n">I</span><span class="p">(</span><span class="n">ndof</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">A_continuous</span> <span class="o">=</span> <span class="p">[</span><span class="n">Z</span> <span class="n">Id</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">                    <span class="o">-</span><span class="p">(</span><span class="n">M</span> <span class="o">\</span> <span class="n">K</span><span class="p">)</span> <span class="o">-</span><span class="p">(</span><span class="n">M</span> <span class="o">\</span> <span class="n">C</span><span class="p">)]</span>
-</span></span><span class="line"><span class="cl">    <span class="n">B_continuous</span> <span class="o">=</span> <span class="p">[</span><span class="n">Z</span><span class="p">;</span> <span class="n">Id</span> <span class="o">\</span> <span class="n">M</span><span class="p">]</span> <span class="o">*</span> <span class="n">Sp</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">A</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">dt</span> <span class="o">*</span> <span class="n">A_continuous</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">B</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span> <span class="o">-</span> <span class="n">I</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">ndof</span><span class="p">))</span> <span class="o">*</span> <span class="n">A_continuous</span> <span class="o">\</span> <span class="n">B_continuous</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">Sp</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>construct_ssm (generic function with 1 method)
-</code></pre>
-<h3 id="generating-input-forces">Generating Input Forces</h3>
-<p>External forces $ p[k] $ acting on the system are modeled as <strong>Gaussian white noise</strong>:</p>
-<p>$$
+where:
+- $ A = e^{A_{\text{c}} \Delta t} $ is the **state transition matrix**.
+- $ B = (A - I) A_{\text{c}}^{-1} B_{\text{c}} $ is the **input matrix**, obtained by integrating the continuous-time system.
+
+This state-space representation forms the basis for propagating the system states during simulation.
+
+
+
+```julia
+# function to construct the state space model
+function construct_ssm(StructuralModel,dt, ndof, nf)
+    # unpack the structural model
+    M = StructuralModel.M
+    K = StructuralModel.K
+    C = StructuralModel.C
+    
+    
+    Sp = zeros(ndof, nf)
+    Sp[4, 1] = 1
+
+    Z = zeros(ndof, ndof)
+    Id = I(ndof)
+
+    A_continuous = [Z Id;
+                    -(M \ K) -(M \ C)]
+    B_continuous = [Z; Id \ M] * Sp
+
+    A = exp(dt * A_continuous)
+    B = (A - I(2*ndof)) * A_continuous \ B_continuous
+
+    return A, B, Sp
+end
+```
+
+
+    construct_ssm (generic function with 1 method)
+
+
+### Generating Input Forces
+
+External forces $ p[k] $ acting on the system are modeled as **Gaussian white noise**:
+
+$$
 p[k] \sim \mathcal{N}(\mu, \sigma^2),
 $$
-where $ \mu $ is the mean and $ \sigma $ controls the intensity of the force.</p>
-<p>In this example, the inputs are generated independently at each time step $ k $ and across input channels to simulate random excitations, such as wind or seismic forces.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># function to generate random input noise</span>
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">generate_input</span><span class="p">(</span><span class="n">N_data</span><span class="o">::</span><span class="kt">Int</span><span class="p">,</span> <span class="n">nf</span><span class="o">::</span><span class="kt">Int</span><span class="p">;</span> <span class="n">input_mu</span><span class="o">::</span><span class="kt">Float64</span><span class="p">,</span> <span class="n">input_std</span><span class="o">::</span><span class="kt">Float64</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Random</span><span class="o">.</span><span class="n">seed!</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">p_real</span> <span class="o">=</span> <span class="n">input_mu</span> <span class="o">.+</span> <span class="n">randn</span><span class="p">(</span><span class="n">N_data</span><span class="p">,</span> <span class="n">nf</span><span class="p">)</span> <span class="o">.*</span> <span class="n">input_std</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">p_real</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>generate_input (generic function with 1 method)
-</code></pre>
-<h3 id="observation-model">Observation Model</h3>
-<p>System responses, such as accelerations, are often measured at specific locations using sensors. The measurements are simulated using the equation:</p>
-<p>$$
+where $ \mu $ is the mean and $ \sigma $ controls the intensity of the force.
+
+In this example, the inputs are generated independently at each time step $ k $ and across input channels to simulate random excitations, such as wind or seismic forces.
+
+
+
+
+```julia
+# function to generate random input noise
+function generate_input(N_data::Int, nf::Int; input_mu::Float64, input_std::Float64)
+    Random.seed!(42)
+    p_real = input_mu .+ randn(N_data, nf) .* input_std
+    return p_real
+end
+```
+
+
+    generate_input (generic function with 1 method)
+
+
+### Observation Model
+
+System responses, such as accelerations, are often measured at specific locations using sensors. The measurements are simulated using the equation:
+
+$$
 y[k] = G x[k] + J p[k] + v[k],
 $$
-where:</p>
-<ul>
-<li>$ G $ maps the system states $ x[k] $ to measured outputs.</li>
-<li>$ J $ maps the input forces $ p[k] $ to the measurements.</li>
-<li>$ v[k] \sim \mathcal{N}(0, \sigma_y^2 I) $ is Gaussian noise representing sensor inaccuracies.</li>
-</ul>
-<p>The noise variance $ \sigma_y^2 $ is chosen as a fraction of the true system response variance for realism.</p>
-<p>In this example, <strong>accelerations</strong> are measured at selected degrees of freedom (e.g., nodes 1 and 4).</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># function to generate the measurements and noise</span>
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">generate_measurements</span><span class="p">(</span><span class="n">ndof</span><span class="p">,</span> <span class="n">na</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">nd</span><span class="p">,</span> <span class="n">N_data</span><span class="p">,</span> <span class="n">x_real</span><span class="p">,</span> <span class="n">y_real</span><span class="p">,</span> <span class="n">p_real</span><span class="p">,</span> <span class="n">StructuralModel</span><span class="p">,</span> <span class="n">Sp</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c"># unpack the structural model</span>
-</span></span><span class="line"><span class="cl">    <span class="n">M</span> <span class="o">=</span> <span class="n">StructuralModel</span><span class="o">.</span><span class="n">M</span>
-</span></span><span class="line"><span class="cl">    <span class="n">K</span> <span class="o">=</span> <span class="n">StructuralModel</span><span class="o">.</span><span class="n">K</span>
-</span></span><span class="line"><span class="cl">    <span class="n">C</span> <span class="o">=</span> <span class="n">StructuralModel</span><span class="o">.</span><span class="n">C</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="n">Sa</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="n">na</span><span class="p">,</span> <span class="n">ndof</span><span class="p">)</span>            <span class="c"># selection matrix</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Sa</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>                    <span class="c"># acceleration at node 1</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Sa</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>                    <span class="c"># acceleration at node 4</span>
-</span></span><span class="line"><span class="cl">    <span class="n">G</span> <span class="o">=</span> <span class="n">Sa</span> <span class="o">*</span> <span class="p">[</span><span class="o">-</span><span class="p">(</span><span class="n">M</span> <span class="o">\</span> <span class="n">K</span><span class="p">)</span> <span class="o">-</span><span class="p">(</span><span class="n">M</span> <span class="o">\</span> <span class="n">C</span><span class="p">)]</span> 
-</span></span><span class="line"><span class="cl">    <span class="n">J</span> <span class="o">=</span> <span class="n">Sa</span> <span class="o">*</span> <span class="p">(</span><span class="n">I</span> <span class="o">\</span> <span class="n">M</span><span class="p">)</span> <span class="o">*</span> <span class="n">Sp</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">ry</span> <span class="o">=</span> <span class="n">Statistics</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">y_real</span><span class="p">[</span><span class="mi">2</span><span class="o">*</span><span class="n">ndof</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="o">:</span><span class="p">],</span> <span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mf">0.1</span><span class="o">^</span><span class="mi">2</span><span class="p">)</span>        <span class="c"># simulate noise as 1% RMS of the noise-free acceleration response</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">nm</span> <span class="o">=</span> <span class="n">na</span> <span class="o">+</span> <span class="n">nv</span> <span class="o">+</span> <span class="n">nd</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">R</span> <span class="o">=</span> <span class="n">I</span><span class="p">(</span><span class="n">nm</span><span class="p">)</span> <span class="o">.*</span> <span class="n">ry</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">y_meas</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="n">nm</span><span class="p">,</span> <span class="n">N_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_noise</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">ry</span><span class="p">)</span> <span class="o">.*</span> <span class="n">randn</span><span class="p">(</span><span class="n">nm</span><span class="p">,</span> <span class="n">N_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># reconstruct the measurements</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_meas</span> <span class="o">=</span> <span class="kt">Vector</span><span class="p">{</span><span class="kt">Vector</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}(</span><span class="nb">undef</span><span class="p">,</span> <span class="n">N_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">N_data</span>
-</span></span><span class="line"><span class="cl">        <span class="n">y_meas</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">G</span> <span class="o">*</span> <span class="n">x_real</span><span class="p">[</span><span class="o">:</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="n">J</span> <span class="o">*</span> <span class="n">p_real</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="o">:</span><span class="p">]</span> <span class="o">+</span> <span class="n">y_noise</span><span class="p">[</span><span class="o">:</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">    <span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">y_meas</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">R</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>generate_measurements (generic function with 1 method)
-</code></pre>
-<h3 id="simulating-the-structural-response">Simulating the Structural Response</h3>
-<p>The structural response under applied forces is governed by the state-space equations:</p>
-<p>$$
+where:
+- $ G $ maps the system states $ x[k] $ to measured outputs.
+- $ J $ maps the input forces $ p[k] $ to the measurements.
+- $ v[k] \sim \mathcal{N}(0, \sigma_y^2 I) $ is Gaussian noise representing sensor inaccuracies.
+
+The noise variance $ \sigma_y^2 $ is chosen as a fraction of the true system response variance for realism.
+
+In this example, **accelerations** are measured at selected degrees of freedom (e.g., nodes 1 and 4).
+
+
+
+```julia
+# function to generate the measurements and noise
+function generate_measurements(ndof, na, nv, nd, N_data, x_real, y_real, p_real, StructuralModel, Sp)
+    # unpack the structural model
+    M = StructuralModel.M
+    K = StructuralModel.K
+    C = StructuralModel.C
+    
+    Sa = zeros(na, ndof)            # selection matrix
+    Sa[1, 1] = 1                    # acceleration at node 1
+    Sa[2, 4] = 1                    # acceleration at node 4
+    G = Sa * [-(M \ K) -(M \ C)] 
+    J = Sa * (I \ M) * Sp
+
+    ry = Statistics.var(y_real[2*ndof+1, :], ) * (0.1^2)        # simulate noise as 1% RMS of the noise-free acceleration response
+
+    nm = na + nv + nd
+
+    R = I(nm) .* ry
+
+    y_meas = zeros(nm, N_data)
+    y_noise = sqrt(ry) .* randn(nm, N_data)
+
+    # reconstruct the measurements
+    y_meas = Vector{Vector{Float64}}(undef, N_data)
+    for i in 1:N_data
+        y_meas[i] = G * x_real[:, i] + J * p_real[i, :] + y_noise[:, i]
+    end
+
+    return y_meas, G, J, R
+end
+```
+
+
+    generate_measurements (generic function with 1 method)
+
+
+### Simulating the Structural Response
+
+The structural response under applied forces is governed by the state-space equations:
+
+$$
 \begin{aligned}
-x[k+1] &amp; = A x[k] + B p[k], \
-y[k]   &amp; = G_{\text{full}} x[k] + J_{\text{full}} p[k],
+x[k+1] & = A x[k] + B p[k], \\
+y[k]   & = G_{\text{full}} x[k] + J_{\text{full}} p[k],
 \end{aligned}
 $$
-where $ x[k] $ are the system states, $ p[k] $ are the input forces, and $ y[k] $ are the <strong>full-field responses</strong>, i.e., the response at every degree of freedom in our structure.</p>
-<p>The function below returns:</p>
-<ul>
-<li><strong>True States</strong>: $ x_{\text{real}} $, propagated using $ A $ and $ B $.</li>
-<li><strong>Full-Field Responses</strong>: $ y_{\text{real}} $, incorporating both states and inputs.</li>
-<li><strong>Input Forces</strong>: $ p_{\text{real}} $, generated as stochastic excitations.</li>
-<li><strong>Response Matrices</strong>: $ G_{\text{full}} $ (state-to-response) and $ J_{\text{full}} $ (input-to-response).</li>
-</ul>
-<p>These outputs simulate the physical behavior of the system and serve as the basis for inference. We keep the matrices because they will be used later when analyzing our results.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># function to simulate the structural response</span>
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">simulate_response</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">StructuralModel</span><span class="p">,</span> <span class="n">Sp</span><span class="p">,</span> <span class="n">nf</span><span class="p">,</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">N_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c"># unpack the structural model</span>
-</span></span><span class="line"><span class="cl">    <span class="n">M</span> <span class="o">=</span> <span class="n">StructuralModel</span><span class="o">.</span><span class="n">M</span>
-</span></span><span class="line"><span class="cl">    <span class="n">K</span> <span class="o">=</span> <span class="n">StructuralModel</span><span class="o">.</span><span class="n">K</span>
-</span></span><span class="line"><span class="cl">    <span class="n">C</span> <span class="o">=</span> <span class="n">StructuralModel</span><span class="o">.</span><span class="n">C</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="n">p_real</span> <span class="o">=</span> <span class="n">generate_input</span><span class="p">(</span><span class="n">N_data</span><span class="p">,</span> <span class="n">nf</span><span class="p">,</span> <span class="n">input_mu</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">input_std</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">Z</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="n">ndof</span><span class="p">,</span> <span class="n">ndof</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Id</span> <span class="o">=</span> <span class="n">I</span><span class="p">(</span><span class="n">ndof</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="n">G_full</span> <span class="o">=</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">            <span class="n">Id</span> <span class="n">Z</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">            <span class="n">Z</span> <span class="n">Id</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">            <span class="o">-</span><span class="p">(</span><span class="n">M</span> <span class="o">\</span> <span class="n">K</span><span class="p">)</span> <span class="o">-</span><span class="p">(</span><span class="n">M</span> <span class="o">\</span> <span class="n">C</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">            <span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">J_full</span> <span class="o">=</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">        <span class="n">Z</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">        <span class="n">Z</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">        <span class="n">Id</span> <span class="o">\</span> <span class="n">M</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span> <span class="o">*</span> <span class="n">Sp</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="c"># preallocate matrices</span>
-</span></span><span class="line"><span class="cl">    <span class="n">x_real</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">N_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_real</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">N_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">2</span><span class="o">:</span><span class="n">N_data</span>
-</span></span><span class="line"><span class="cl">        <span class="n">x_real</span><span class="p">[</span><span class="o">:</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">A</span> <span class="o">*</span> <span class="n">x_real</span><span class="p">[</span><span class="o">:</span><span class="p">,</span> <span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">B</span> <span class="o">*</span> <span class="n">p_real</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">:</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">        <span class="n">y_real</span><span class="p">[</span><span class="o">:</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">G_full</span> <span class="o">*</span> <span class="n">x_real</span><span class="p">[</span><span class="o">:</span><span class="p">,</span> <span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">J_full</span> <span class="o">*</span> <span class="n">p_real</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">:</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">    <span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">x_real</span><span class="p">,</span> <span class="n">y_real</span><span class="p">,</span> <span class="n">p_real</span><span class="p">,</span> <span class="n">G_full</span><span class="p">,</span> <span class="n">J_full</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span> 
-</span></span></code></pre></div><pre><code>simulate_response (generic function with 1 method)
-</code></pre>
-<h3 id="augmented-state-space-model">Augmented State-Space Model</h3>
-<p>In structural health monitoring, external input forces $ p[k] $ acting on a structure, such as environmental loads or unknown excitations, are often not directly measurable. To estimate both the system states $ x[k] $ and these unknown input forces, we <strong>augment the state vector</strong> as follows:</p>
-<p>$$
-\tilde{x}[k] =
+where $ x[k] $ are the system states, $ p[k] $ are the input forces, and $ y[k] $ are the **full-field responses**, i.e., the response at every degree of freedom in our structure.
+
+
+The function below returns:
+- **True States**: $ x_{\text{real}} $, propagated using $ A $ and $ B $.
+- **Full-Field Responses**: $ y_{\text{real}} $, incorporating both states and inputs.
+- **Input Forces**: $ p_{\text{real}} $, generated as stochastic excitations.
+- **Response Matrices**: $ G_{\text{full}} $ (state-to-response) and $ J_{\text{full}} $ (input-to-response).
+
+These outputs simulate the physical behavior of the system and serve as the basis for inference. We keep the matrices because they will be used later when analyzing our results.
+
+
+
+```julia
+# function to simulate the structural response
+function simulate_response(A, B, StructuralModel, Sp, nf, ndof, N_data)
+    # unpack the structural model
+    M = StructuralModel.M
+    K = StructuralModel.K
+    C = StructuralModel.C
+    
+    p_real = generate_input(N_data, nf, input_mu = 0.0, input_std = 0.05)
+
+    Z = zeros(ndof, ndof)
+    Id = I(ndof)
+    
+    G_full = [
+            Id Z;
+            Z Id;
+            -(M \ K) -(M \ C)
+            ]
+
+    J_full = [
+        Z;
+        Z;
+        Id \ M
+    ] * Sp
+    
+    # preallocate matrices
+    x_real = zeros(2 * ndof, N_data)
+    y_real = zeros(3 * ndof, N_data)
+
+    for i in 2:N_data
+        x_real[:, i] = A * x_real[:, i-1] + B * p_real[i-1, :]
+        y_real[:, i] = G_full * x_real[:, i-1] + J_full * p_real[i-1, :]
+    end
+
+    return x_real, y_real, p_real, G_full, J_full
+end 
+```
+
+
+    simulate_response (generic function with 1 method)
+
+
+### Augmented State-Space Model
+
+In structural health monitoring, external input forces $ p[k] $ acting on a structure, such as environmental loads or unknown excitations, are often not directly measurable. To estimate both the system states $ x[k] $ and these unknown input forces, we **augment the state vector** as follows:
+
+$$
+\tilde{x}[k] = 
 \begin{bmatrix}
-x[k] \
+x[k] \\
 p[k]
 \end{bmatrix}.
-$$</p>
-<p>This approach allows us to simultaneously infer the internal system states (e.g., displacements and velocities) and the unknown inputs using available measurements.</p>
-<p>The augmented system dynamics are then expressed as:</p>
-<p>$$
+$$
+
+This approach allows us to simultaneously infer the internal system states (e.g., displacements and velocities) and the unknown inputs using available measurements.
+
+
+The augmented system dynamics are then expressed as:
+
+$$
 \begin{aligned}
-\tilde{x}[k+1] &amp; = A_{\text{aug}} \tilde{x}[k] + w[k], \
-y[k] &amp; = G_{\text{aug}} \tilde{x}[k] + v[k],
+\tilde{x}[k+1] & = A_{\text{aug}} \tilde{x}[k] + w[k], \\
+y[k] & = G_{\text{aug}} \tilde{x}[k] + v[k],
 \end{aligned}
-$$</p>
-<p>where:</p>
-<ul>
-<li>$ A_{\text{aug}} $: Augmented state transition matrix.</li>
-<li>$ G_{\text{aug}} $: Augmented measurement matrix.</li>
-<li>$ Q_{\text{akf}} $: Augmented process noise covariance, capturing uncertainties in both states and inputs.</li>
-<li>$ w[k] $, $ v[k] $: Process and measurement noise.</li>
-</ul>
-<h5 id="full-field-vs-measurement-space">Full-Field vs. Measurement Space</h5>
-<p>To avoid confusion, we define two augmented measurement matrices:</p>
-<ul>
-<li><strong>$ G_{\text{aug}} $</strong>: Projects the augmented state vector $ \tilde{x}[k] $ to the observed <strong>sensor measurements</strong> (e.g., accelerations at specific nodes).</li>
-<li><em><em>$ G^</em> $</em>*: The <strong>augmented full-field measurement matrix</strong>, which projects the augmented state vector to the full-field <strong>system response</strong>. This includes all degrees of freedom (displacements, velocities, and accelerations).</li>
-</ul>
-<p>The distinction is critical:</p>
-<ul>
-<li>$ G_{\text{aug}} $ is used directly in the smoother to estimate states and inputs from limited measurements.</li>
-<li>$ G^* $ is used later to reconstruct the full response field for visualization and validation.</li>
-</ul>
-<p>For clarity, we will refer to the <strong>augmented full-field matrix</strong> as $ G^* $ throughout the rest of this example, whereas, in the code, this will be the <code>G_aug_fullfield</code> object.</p>
-<h4 id="noise-covariances">Noise Covariances</h4>
-<p>In this step, the process and measurement noise covariances are assumed to be <strong>known</strong> or <strong>pre-calibrated</strong>. For example:</p>
-<ul>
-<li>The input force uncertainty $ Q_p $ is set to a high value to reflect significant variability.</li>
-<li>State noise covariance $ Q_x $ is chosen to reflect minimal uncertainty in the model.</li>
-</ul>
-<p>The augmented noise covariance matrix $ Q_{\text{akf}} $ combines these quantities:</p>
-<p>$$
+$$
+
+where:
+- $ A_{\text{aug}} $: Augmented state transition matrix.  
+- $ G_{\text{aug}} $: Augmented measurement matrix.  
+- $ Q_{\text{akf}} $: Augmented process noise covariance, capturing uncertainties in both states and inputs.  
+- $ w[k] $, $ v[k] $: Process and measurement noise.  
+
+##### Full-Field vs. Measurement Space  
+
+To avoid confusion, we define two augmented measurement matrices:  
+- **$ G_{\text{aug}} $**: Projects the augmented state vector $ \tilde{x}[k] $ to the observed **sensor measurements** (e.g., accelerations at specific nodes).  
+- **$ G^* $**: The **augmented full-field measurement matrix**, which projects the augmented state vector to the full-field **system response**. This includes all degrees of freedom (displacements, velocities, and accelerations).  
+
+The distinction is critical:
+- $ G_{\text{aug}} $ is used directly in the smoother to estimate states and inputs from limited measurements.  
+- $ G^* $ is used later to reconstruct the full response field for visualization and validation.
+
+For clarity, we will refer to the **augmented full-field matrix** as $ G^* $ throughout the rest of this example, whereas, in the code, this will be the `G_aug_fullfield` object.
+
+#### Noise Covariances  
+In this step, the process and measurement noise covariances are assumed to be **known** or **pre-calibrated**. For example:
+- The input force uncertainty $ Q_p $ is set to a high value to reflect significant variability.  
+- State noise covariance $ Q_x $ is chosen to reflect minimal uncertainty in the model.  
+
+The augmented noise covariance matrix $ Q_{\text{akf}} $ combines these quantities:
+
+$$
 Q_{\text{akf}} =
 \begin{bmatrix}
-Q_x &amp; 0 \
-0 &amp; Q_p
+Q_x & 0 \\
+0 & Q_p
 \end{bmatrix}.
-$$</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># function to construct the augmented model</span>
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">construct_augmented_model</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">G_full</span><span class="p">,</span> <span class="n">J_full</span><span class="p">,</span> <span class="n">nf</span><span class="p">,</span> <span class="n">ndof</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Z_aug</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="n">nf</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">ndof</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">A_aug</span> <span class="o">=</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">        <span class="n">A</span> <span class="n">B</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">        <span class="n">Z_aug</span> <span class="n">I</span><span class="p">(</span><span class="n">nf</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="p">]</span>
-</span></span><span class="line"><span class="cl">    <span class="n">G_aug</span> <span class="o">=</span> <span class="p">[</span><span class="n">G</span> <span class="n">J</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">G_aug_fullfield</span> <span class="o">=</span> <span class="p">[</span><span class="n">G_full</span> <span class="n">J_full</span><span class="p">]</span>                               <span class="c"># full-field augmented matrix</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">Qp_aug</span> <span class="o">=</span> <span class="n">I</span><span class="p">(</span><span class="n">nf</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e-2</span>                                           <span class="c"># assumed known or pre-callibrated</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="n">Qx_aug</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">ndof</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">ndof</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Qx_aug</span><span class="p">[(</span><span class="n">ndof</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">:</span><span class="k">end</span><span class="p">,</span> <span class="p">(</span><span class="n">ndof</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">:</span><span class="k">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">I</span><span class="p">(</span><span class="n">ndof</span><span class="p">)</span> <span class="o">*</span> <span class="mf">1e-1</span>            <span class="c"># assumed known or pre-callibrated</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">Q_akf</span> <span class="o">=</span> <span class="p">[</span>
-</span></span><span class="line"><span class="cl">        <span class="n">Qx_aug</span> <span class="n">Z_aug</span><span class="o">&#39;</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">        <span class="n">Z_aug</span> <span class="n">Qp_aug</span>
-</span></span><span class="line"><span class="cl">    <span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">A_aug</span><span class="p">,</span> <span class="n">G_aug</span><span class="p">,</span> <span class="n">Q_akf</span><span class="p">,</span> <span class="n">G_aug_fullfield</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>construct_augmented_model (generic function with 1 method)
-</code></pre>
-<p>Finally, we combine all the key steps into a single workflow to generate the system dynamics, responses, measurements, and the augmented state-space model.</p>
-<p>The results are stored in a <code>StructuralModelData</code> object for convenient access:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">function</span> <span class="n">get_structural_model</span><span class="p">(</span><span class="n">StructuralModel</span><span class="p">,</span> <span class="n">simulation_time</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># intialize</span>
-</span></span><span class="line"><span class="cl">    <span class="n">ndof</span> <span class="o">=</span> <span class="n">size</span><span class="p">(</span><span class="n">StructuralModel</span><span class="o">.</span><span class="n">M</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>                               <span class="c"># number of degrees of freedom</span>
-</span></span><span class="line"><span class="cl">    <span class="n">nf</span> <span class="o">=</span> <span class="mi">1</span>                                                          <span class="c"># number of inputs</span>
-</span></span><span class="line"><span class="cl">    <span class="n">na</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">nd</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>                                            <span class="c"># number of oberved accelerations, velocities, and displacements</span>
-</span></span><span class="line"><span class="cl">    <span class="n">N_data</span> <span class="o">=</span> <span class="kt">Int</span><span class="p">(</span><span class="n">simulation_time</span> <span class="o">/</span> <span class="n">dt</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
-</span></span><span class="line"><span class="cl">    <span class="n">t</span> <span class="o">=</span> <span class="n">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">stop</span><span class="o">=</span><span class="n">simulation_time</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="n">N_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># construct state-space model from structural matrices</span>
-</span></span><span class="line"><span class="cl">    <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">Sp</span> <span class="o">=</span> <span class="n">construct_ssm</span><span class="p">(</span><span class="n">StructuralModel</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">nf</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># Generate input and simulate response</span>
-</span></span><span class="line"><span class="cl">    <span class="n">x_real</span><span class="p">,</span> <span class="n">y_real</span><span class="p">,</span> <span class="n">p_real</span><span class="p">,</span> <span class="n">G_full</span><span class="p">,</span> <span class="n">J_full</span> <span class="o">=</span> <span class="n">simulate_response</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">StructuralModel</span><span class="p">,</span> <span class="n">Sp</span><span class="p">,</span> <span class="n">nf</span><span class="p">,</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">N_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># Generate measurements</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_meas</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">R</span> <span class="o">=</span> <span class="n">generate_measurements</span><span class="p">(</span><span class="n">ndof</span><span class="p">,</span> <span class="n">na</span><span class="p">,</span> <span class="n">nv</span><span class="p">,</span> <span class="n">nd</span><span class="p">,</span> <span class="n">N_data</span><span class="p">,</span> <span class="n">x_real</span><span class="p">,</span> <span class="n">y_real</span><span class="p">,</span> <span class="n">p_real</span><span class="p">,</span> <span class="n">StructuralModel</span><span class="p">,</span> <span class="n">Sp</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># Construct augmented model</span>
-</span></span><span class="line"><span class="cl">    <span class="n">A_aug</span><span class="p">,</span> <span class="n">G_aug</span><span class="p">,</span> <span class="n">Q_akf</span><span class="p">,</span> <span class="n">G_aug_fullfield</span> <span class="o">=</span> <span class="n">construct_augmented_model</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">G_full</span><span class="p">,</span> <span class="n">J_full</span><span class="p">,</span> <span class="n">nf</span><span class="p">,</span> <span class="n">ndof</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">StructuralModelData</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">ndof</span><span class="p">,</span> <span class="n">nf</span><span class="p">,</span> <span class="n">N_data</span><span class="p">,</span> <span class="n">y_meas</span><span class="p">,</span> <span class="n">A_aug</span><span class="p">,</span> <span class="n">G_aug</span><span class="p">,</span> <span class="n">G_aug_fullfield</span><span class="p">,</span> <span class="n">Q_akf</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">x_real</span><span class="p">,</span> <span class="n">y_real</span><span class="p">,</span> <span class="n">p_real</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>get_structural_model (generic function with 1 method)
-</code></pre>
-<p>We define the simulation time and time step, then run the workflow to generate the structural model:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">simulation_time</span> <span class="o">=</span> <span class="mf">5.0</span>
-</span></span><span class="line"><span class="cl"><span class="n">dt</span> <span class="o">=</span> <span class="mf">0.001</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">model_data</span> <span class="o">=</span> <span class="n">get_structural_model</span><span class="p">(</span><span class="n">StructuralModel</span><span class="p">,</span> <span class="n">simulation_time</span><span class="p">,</span> <span class="n">dt</span><span class="p">);</span>
-</span></span></code></pre></div><h2 id="state-and-input-estimation-with-rxinfer-1">State and Input Estimation with RxInfer</h2>
-<p>In this section, we use <strong>RxInfer</strong> to estimate the system states and unknown input forces from the simulated noisy measurements using the Augmented State Space Model discussed.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">RxInfer</span>
-</span></span></code></pre></div><h3 id="defining-the-akf-smoother-model">Defining the AKF Smoother Model</h3>
-<p>Here, we define our <strong>Augmented Kalman Filter (AKF)</strong> smoother using RxInfer. This probabilistic model estimates the system states and unknown input forces based on the measurements.</p>
-<ul>
-<li><strong>State Prior</strong>: We start with a prior belief about the initial state, <code>x0</code>.</li>
-<li><strong>State Transition</strong>: At each time step, the system state evolves based on the transition matrix $ A $ and process noise covariance $ Q $:
 $$
-x[k] \sim \mathcal{N}(A x[k-1], Q).
-$$</li>
-<li><strong>Measurements</strong>: The observations (sensor data) are modeled as noisy measurements of the states:
-$$
-y[k] \sim \mathcal{N}(G x[k], R),
-$$
-where $ G $ maps the states to the measurements, and $ R $ is the measurement noise covariance.</li>
-</ul>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="nd">@model</span> <span class="k">function</span> <span class="n">smoother_model</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">x0</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">x_prior</span> <span class="o">~</span> <span class="n">x0</span>
-</span></span><span class="line"><span class="cl">    <span class="n">x_prev</span> <span class="o">=</span> <span class="n">x_prior</span>  <span class="c"># initialize previous state with x_prior</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">length</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">~</span> <span class="n">MvNormalMeanCovariance</span><span class="p">(</span><span class="n">A</span> <span class="o">*</span> <span class="n">x_prev</span><span class="p">,</span> <span class="n">Q</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">~</span> <span class="n">MvNormalMeanCovariance</span><span class="p">(</span><span class="n">G</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">R</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">x_prev</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">    <span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><h3 id="running-the-akf-smoother">Running the AKF Smoother</h3>
-<p>Now that we have our system set up, it&rsquo;s time to estimate the system states and unknown input forces using RxInfer. We&rsquo;ll run the <strong>Augmented Kalman Filter (AKF) smoother</strong> to make sense of the noisy measurements.</p>
-<p>Here’s the game plan:</p>
-<ol>
-<li>
-<p><strong>Unpack the Data</strong>:<br>
-We grab everything we need from the <code>model_data</code> object – time, matrices, measurements, and noise covariances.</p>
-</li>
-<li>
-<p><strong>Set the Initial State</strong>:<br>
-We start with a prior belief about the first state, assuming it&rsquo;s zero with some process noise:<br>
-$$
-x_0 \sim \mathcal{N}(0, Q_{\text{akf}}).
-$$</p>
-</li>
-<li>
-<p><strong>Run the Smoother</strong>:<br>
-We define a helper function to keep things tidy. This function calls RxInfer’s <code>infer</code> method, which does the heavy lifting for us.</p>
-</li>
-<li>
-<p><strong>Extract and Reconstruct</strong>:</p>
-<ul>
-<li>RxInfer gives us <strong>state marginals</strong>, which are the posterior estimates of the states.</li>
-<li>Using a helper function, we reconstruct the <strong>full-field responses</strong> (displacements, velocities, and accelerations).</li>
-<li>We also extract the estimated input forces, which are part of the augmented state.</li>
-</ul>
-</li>
-</ol>
-<p>That’s it! With just a few lines of code, RxInfer takes care of the math behind the scenes and delivers smooth, reliable estimates of what’s happening inside the system.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># let&#39;s wrap the results in a struct</span>
-</span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="kt">InferenceResults</span>
-</span></span><span class="line"><span class="cl">    <span class="n">state_marginals</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_full_means</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_full_stds</span>
-</span></span><span class="line"><span class="cl">    <span class="n">p_means</span>
-</span></span><span class="line"><span class="cl">    <span class="n">p_stds</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">run_smoother</span><span class="p">(</span><span class="n">model_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c"># unpack the model data</span>
-</span></span><span class="line"><span class="cl">    <span class="n">t</span>               <span class="o">=</span> <span class="n">model_data</span><span class="o">.</span><span class="n">t</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">N_data</span>          <span class="o">=</span> <span class="n">model_data</span><span class="o">.</span><span class="n">N_data</span>
-</span></span><span class="line"><span class="cl">    <span class="n">A_aug</span>           <span class="o">=</span> <span class="n">model_data</span><span class="o">.</span><span class="n">A_aug</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">G_aug</span>           <span class="o">=</span> <span class="n">model_data</span><span class="o">.</span><span class="n">G_aug</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">G_aug_fullfield</span> <span class="o">=</span> <span class="n">model_data</span><span class="o">.</span><span class="n">G_aug_fullfield</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Q_akf</span>           <span class="o">=</span> <span class="n">model_data</span><span class="o">.</span><span class="n">Q_akf</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">R</span>               <span class="o">=</span> <span class="n">model_data</span><span class="o">.</span><span class="n">R</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_meas</span>          <span class="o">=</span> <span class="n">model_data</span><span class="o">.</span><span class="n">y_meas</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="c"># initialize the state - required when doing smoothing</span>
-</span></span><span class="line"><span class="cl">    <span class="n">x0</span> <span class="o">=</span> <span class="n">MvNormalMeanCovariance</span><span class="p">(</span><span class="n">zeros</span><span class="p">(</span><span class="n">size</span><span class="p">(</span><span class="n">A_aug</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">Q_akf</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># define the smoother engine</span>
-</span></span><span class="line"><span class="cl">    <span class="k">function</span> <span class="n">smoother_engine</span><span class="p">(</span><span class="n">y_meas</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">Q</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="c"># run the akf smoother</span>
-</span></span><span class="line"><span class="cl">        <span class="n">result_smoother</span> <span class="o">=</span> <span class="n">infer</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">            <span class="n">model</span>   <span class="o">=</span> <span class="n">smoother_model</span><span class="p">(</span><span class="n">x0</span> <span class="o">=</span> <span class="n">x0</span><span class="p">,</span> <span class="n">A</span> <span class="o">=</span> <span class="n">A</span><span class="p">,</span> <span class="n">G</span> <span class="o">=</span> <span class="n">G</span><span class="p">,</span> <span class="n">Q</span> <span class="o">=</span> <span class="n">Q</span><span class="p">,</span> <span class="n">R</span> <span class="o">=</span> <span class="n">R</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">            <span class="n">data</span>    <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">=</span> <span class="n">y_meas</span><span class="p">,),</span>
-</span></span><span class="line"><span class="cl">            <span class="n">options</span> <span class="o">=</span> <span class="p">(</span><span class="n">limit_stack_depth</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span> <span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="c"># return posteriors as this inference task returns the results as posteriors</span>
-</span></span><span class="line"><span class="cl">        <span class="c"># because inference is done over the full graph</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">result_smoother</span><span class="o">.</span><span class="n">posteriors</span><span class="p">[</span><span class="ss">:x</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">    <span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># get the marginals of x</span>
-</span></span><span class="line"><span class="cl">    <span class="n">state_marginals</span> <span class="o">=</span> <span class="n">smoother_engine</span><span class="p">(</span><span class="n">y_meas</span><span class="p">,</span> <span class="n">A_aug</span><span class="p">,</span> <span class="n">G_aug</span><span class="p">,</span> <span class="n">Q_akf</span><span class="p">,</span> <span class="n">R</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="c"># reconstructing the full-field response:</span>
-</span></span><span class="line"><span class="cl">    <span class="c"># use helper function to reconstruct the full-field response</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_full_means</span><span class="p">,</span> <span class="n">y_full_stds</span> <span class="o">=</span> <span class="n">reconstruct_full_field</span><span class="p">(</span><span class="n">state_marginals</span><span class="p">,</span> <span class="n">G_aug_fullfield</span><span class="p">,</span> <span class="n">N_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># extract the estimated input (input modeled as an augmentation state)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">p_results_means</span> <span class="o">=</span> <span class="n">getindex</span><span class="o">.</span><span class="p">(</span><span class="n">mean</span><span class="o">.</span><span class="p">(</span><span class="n">state_marginals</span><span class="p">),</span> <span class="n">length</span><span class="p">(</span><span class="n">state_marginals</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
-</span></span><span class="line"><span class="cl">    <span class="n">p_results_stds</span> <span class="o">=</span> <span class="n">getindex</span><span class="o">.</span><span class="p">(</span><span class="n">std</span><span class="o">.</span><span class="p">(</span><span class="n">state_marginals</span><span class="p">),</span> <span class="n">length</span><span class="p">(</span><span class="n">state_marginals</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">InferenceResults</span><span class="p">(</span><span class="n">state_marginals</span><span class="p">,</span> <span class="n">y_full_means</span><span class="p">,</span> <span class="n">y_full_stds</span><span class="p">,</span> <span class="n">p_results_means</span><span class="p">,</span> <span class="n">p_results_stds</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>run_smoother (generic function with 1 method)
-</code></pre>
-<h3 id="mapping-states-to-full-field-responses">Mapping States to Full-Field Responses</h3>
-<p>In the <code>run_smoother</code> function, we used a helper function to map the <strong>state estimates</strong> from the AKF smoother back to the <strong>full-field responses</strong> (e.g., displacements, velocities, and accelerations).</p>
-<p>Why is this important?<br>
-While the smoother estimates the system states, we often care about physical quantities like accelerations or displacements across the entire structure.</p>
-<p>Using the <strong>augmented full-field matrix</strong> $ G^* $, we compute:</p>
-<ul>
-<li><strong>Response means</strong> from state means:<br>
-$$
-\mu_y[i] = G^* \mu_x[i].
-$$</li>
-<li><strong>Response uncertainties</strong> from state covariances:<br>
-$$
-\sigma_y[i] = \sqrt{\text{diag}(G^* \Sigma_x[i] {G^*}^\top)}.
-$$</li>
-</ul>
-<p>This gives us both the expected <strong>responses</strong> and their <strong>uncertainties</strong> at each time step.</p>
-<p>In other words, this function connects the smoother’s internal state estimates to meaningful, physical quantities, making it easy to visualize the system’s behavior.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># helper function to reconstruct the full field response from the state posteriors</span>
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">reconstruct_full_field</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">x_marginals</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">G_aug_fullfield</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">N_data</span><span class="o">::</span><span class="kt">Int</span>
-</span></span><span class="line"><span class="cl">    <span class="p">)</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="c"># preallocate the full field response</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_means</span> <span class="o">=</span> <span class="kt">Vector</span><span class="p">{</span><span class="kt">Vector</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}(</span><span class="nb">undef</span><span class="p">,</span> <span class="n">N_data</span><span class="p">)</span>        <span class="c"># vector of vectors</span>
-</span></span><span class="line"><span class="cl">    <span class="n">y_stds</span> <span class="o">=</span> <span class="kt">Vector</span><span class="p">{</span><span class="kt">Vector</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}(</span><span class="nb">undef</span><span class="p">,</span> <span class="n">N_data</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># reconstruct the full-field response using G_aug_fullfield</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">N_data</span>
-</span></span><span class="line"><span class="cl">        <span class="c"># extract the mean and covariance of the state posterior</span>
-</span></span><span class="line"><span class="cl">        <span class="n">state_mean</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span><span class="n">x_marginals</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>       <span class="c"># each index is a vector</span>
-</span></span><span class="line"><span class="cl">        <span class="n">state_cov</span> <span class="o">=</span> <span class="n">cov</span><span class="p">(</span><span class="n">x_marginals</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="c"># project mean and covariance onto the full-field response space</span>
-</span></span><span class="line"><span class="cl">        <span class="n">y_means</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">G_aug_fullfield</span> <span class="o">*</span> <span class="n">state_mean</span>
-</span></span><span class="line"><span class="cl">        <span class="n">y_stds</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">sqrt</span><span class="o">.</span><span class="p">(</span><span class="n">diag</span><span class="p">(</span><span class="n">G_aug_fullfield</span> <span class="o">*</span> <span class="n">state_cov</span> <span class="o">*</span> <span class="n">G_aug_fullfield</span><span class="o">&#39;</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">    <span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">y_means</span><span class="p">,</span> <span class="n">y_stds</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>reconstruct_full_field (generic function with 1 method)
-</code></pre>
-<p>We now run the AKF smoother using the structural model data to estimate the system states, reconstruct the full-field responses, and extract the input forces along with their uncertainties.</p>
-<p>Let’s fire up that RxInfer!</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># run the smoother</span>
-</span></span><span class="line"><span class="cl"><span class="n">smoother_results</span> <span class="o">=</span> <span class="n">run_smoother</span><span class="p">(</span><span class="n">model_data</span><span class="p">);</span>
-</span></span></code></pre></div><p>To better understand the results, we use two helper functions to create interactive PlotlyBase using <strong>PlotlyBase</strong>:</p>
-<p>We first write a helper function and then plot the <strong>true states</strong>, <strong>full-field response</strong>, <strong>input</strong>, their <strong>estimates</strong>, and the associated <strong>uncertainty</strong>:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># helper function</span>
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">plot_with_uncertainty</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">t</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">true_values</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">estimated_means</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">estimated_uncertainties</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">ylabel_text</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">title_text</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">label_suffix</span><span class="o">=</span><span class="s">&#34;&#34;</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">plot_size</span> <span class="o">=</span> <span class="p">(</span><span class="mi">700</span><span class="p">,</span><span class="mi">300</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">   
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c"># plot true values</span>
-</span></span><span class="line"><span class="cl">    <span class="n">plt</span> <span class="o">=</span> <span class="n">plot</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">        <span class="n">t</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">true_values</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">label</span><span class="o">=</span><span class="s">&#34;true (</span><span class="si">$label_suffix</span><span class="s">)&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">color</span><span class="o">=</span><span class="ss">:blue</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">size</span><span class="o">=</span><span class="n">plot_size</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">left_margin</span> <span class="o">=</span> <span class="mi">5</span><span class="n">Plots</span><span class="o">.</span><span class="n">mm</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">top_margin</span> <span class="o">=</span> <span class="mi">5</span><span class="n">Plots</span><span class="o">.</span><span class="n">mm</span><span class="p">,</span>  
-</span></span><span class="line"><span class="cl">        <span class="n">bottom_margin</span> <span class="o">=</span> <span class="mi">5</span><span class="n">Plots</span><span class="o">.</span><span class="n">mm</span>  
-</span></span><span class="line"><span class="cl">    <span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># plot estimated values with uncertainty ribbon</span>
-</span></span><span class="line"><span class="cl">    <span class="n">plot!</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">        <span class="n">plt</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">t</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">estimated_means</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">ribbon</span><span class="o">=</span><span class="n">estimated_uncertainties</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">fillalpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">label</span><span class="o">=</span><span class="s">&#34;estimated (</span><span class="si">$label_suffix</span><span class="s">)&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">lw</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">color</span><span class="o">=</span><span class="ss">:orange</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">        <span class="n">linestyle</span><span class="o">=</span><span class="ss">:dash</span>
-</span></span><span class="line"><span class="cl">    <span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># add labels and title</span>
-</span></span><span class="line"><span class="cl">    <span class="n">xlabel!</span><span class="p">(</span><span class="s">&#34;time (s)&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">ylabel!</span><span class="p">(</span><span class="n">ylabel_text</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">title!</span><span class="p">(</span><span class="n">title_text</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">plt</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>plot_with_uncertainty (generic function with 2 methods)
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># select some DOFs to plot</span>
-</span></span><span class="line"><span class="cl"><span class="n">ndof</span> <span class="o">=</span> <span class="n">size</span><span class="p">(</span><span class="n">StructuralModel</span><span class="o">.</span><span class="n">M</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">display_state_dof</span>    <span class="o">=</span> <span class="mi">4</span>                <span class="c"># dof 1:4 displacements, dof 5:8 velocities</span>
-</span></span><span class="line"><span class="cl"><span class="n">display_response_dof</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="n">ndof</span> <span class="o">+</span> <span class="mi">1</span>       <span class="c"># dof 1:4 displacements, dof 5:8 velocities, dof 9:12 accelerations</span>
-</span></span><span class="line"><span class="cl"><span class="n">display_input_dof</span>    <span class="o">=</span> <span class="mi">1</span>                <span class="c"># the only one really</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># plot the states</span>
-</span></span><span class="line"><span class="cl"><span class="n">state_plot</span> <span class="o">=</span> <span class="n">plot_with_uncertainty</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">model_data</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">model_data</span><span class="o">.</span><span class="n">x_real</span><span class="p">[</span><span class="n">display_state_dof</span><span class="p">,</span> <span class="o">:</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="n">getindex</span><span class="o">.</span><span class="p">(</span><span class="n">mean</span><span class="o">.</span><span class="p">(</span><span class="n">smoother_results</span><span class="o">.</span><span class="n">state_marginals</span><span class="p">),</span> <span class="n">display_state_dof</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">    <span class="n">getindex</span><span class="o">.</span><span class="p">(</span><span class="n">std</span><span class="o">.</span><span class="p">(</span><span class="n">smoother_results</span><span class="o">.</span><span class="n">state_marginals</span><span class="p">),</span> <span class="n">display_state_dof</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;state value&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;state estimate (dof </span><span class="si">$</span><span class="p">(</span><span class="n">display_state_dof</span><span class="p">)</span><span class="s">)&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;state dof </span><span class="si">$</span><span class="p">(</span><span class="n">display_state_dof</span><span class="p">)</span><span class="s">&#34;</span>
-</span></span><span class="line"><span class="cl"><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># plot the responses</span>
-</span></span><span class="line"><span class="cl"><span class="n">response_plot</span> <span class="o">=</span> <span class="n">plot_with_uncertainty</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">model_data</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">model_data</span><span class="o">.</span><span class="n">y_real</span><span class="p">[</span><span class="n">display_response_dof</span><span class="p">,</span> <span class="o">:</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="n">getindex</span><span class="o">.</span><span class="p">(</span><span class="n">smoother_results</span><span class="o">.</span><span class="n">y_full_means</span><span class="p">,</span> <span class="n">display_response_dof</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">    <span class="n">getindex</span><span class="o">.</span><span class="p">(</span><span class="n">smoother_results</span><span class="o">.</span><span class="n">y_full_stds</span><span class="p">,</span> <span class="n">display_response_dof</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;response value&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;reconstructed response (dof </span><span class="si">$</span><span class="p">(</span><span class="n">display_response_dof</span><span class="p">)</span><span class="s">)&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;response dof </span><span class="si">$</span><span class="p">(</span><span class="n">display_response_dof</span><span class="p">)</span><span class="s">&#34;</span>
-</span></span><span class="line"><span class="cl"><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># plot the inputs</span>
-</span></span><span class="line"><span class="cl"><span class="n">input_plot</span> <span class="o">=</span> <span class="n">plot_with_uncertainty</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">model_data</span><span class="o">.</span><span class="n">t</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">model_data</span><span class="o">.</span><span class="n">p_real</span><span class="p">[</span><span class="o">:</span><span class="p">,</span> <span class="n">display_input_dof</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="n">smoother_results</span><span class="o">.</span><span class="n">p_means</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">smoother_results</span><span class="o">.</span><span class="n">p_stds</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;force value&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;input estimate (applied at dof </span><span class="si">$</span><span class="p">(</span><span class="n">display_input_dof</span><span class="p">)</span><span class="s">)&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="s">&#34;input force </span><span class="si">$</span><span class="p">(</span><span class="n">display_input_dof</span><span class="p">)</span><span class="s">&#34;</span>
-</span></span><span class="line"><span class="cl"><span class="p">);</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">display</span><span class="p">(</span><span class="n">state_plot</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">display</span><span class="p">(</span><span class="n">response_plot</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">display</span><span class="p">(</span><span class="n">input_plot</span><span class="p">)</span>
-</span></span></code></pre></div><?xml version="1.0" encoding="utf-8"?>
+
+
+
+```julia
+# function to construct the augmented model
+function construct_augmented_model(A, B, G, J, G_full, J_full, nf, ndof)
+    Z_aug = zeros(nf, 2*ndof)
+    A_aug = [
+        A B;
+        Z_aug I(nf)
+        ]
+    G_aug = [G J]
+
+    G_aug_fullfield = [G_full J_full]                               # full-field augmented matrix
+
+    Qp_aug = I(nf) * 1e-2                                           # assumed known or pre-callibrated
+    
+    Qx_aug = zeros(2*ndof, 2*ndof)
+    Qx_aug[(ndof+1):end, (ndof+1):end] = I(ndof) * 1e-1            # assumed known or pre-callibrated
+
+    Q_akf = [
+        Qx_aug Z_aug';
+        Z_aug Qp_aug
+    ]
+
+    return A_aug, G_aug, Q_akf, G_aug_fullfield
+end
+```
+
+
+    construct_augmented_model (generic function with 1 method)
+
+
+
+Finally, we combine all the key steps into a single workflow to generate the system dynamics, responses, measurements, and the augmented state-space model.
+
+The results are stored in a `StructuralModelData` object for convenient access:
+
+
+
+```julia
+function get_structural_model(StructuralModel, simulation_time, dt)
+
+    # intialize
+    ndof = size(StructuralModel.M)[1]                               # number of degrees of freedom
+    nf = 1                                                          # number of inputs
+    na, nv, nd = 2, 0, 0                                            # number of oberved accelerations, velocities, and displacements
+    N_data = Int(simulation_time / dt) + 1
+    t = range(0, stop=simulation_time, length=N_data)
+
+    # construct state-space model from structural matrices
+    A, B, Sp = construct_ssm(StructuralModel, dt, ndof, nf)
+
+    # Generate input and simulate response
+    x_real, y_real, p_real, G_full, J_full = simulate_response(A, B, StructuralModel, Sp, nf, ndof, N_data)
+
+    # Generate measurements
+    y_meas, G, J, R = generate_measurements(ndof, na, nv, nd, N_data, x_real, y_real, p_real, StructuralModel, Sp)
+
+    # Construct augmented model
+    A_aug, G_aug, Q_akf, G_aug_fullfield = construct_augmented_model(A, B, G, J, G_full, J_full, nf, ndof)
+
+    return StructuralModelData(t, ndof, nf, N_data, y_meas, A_aug, G_aug, G_aug_fullfield, Q_akf, R, x_real, y_real, p_real)
+end
+```
+
+
+    get_structural_model (generic function with 1 method)
+
+
+We define the simulation time and time step, then run the workflow to generate the structural model:
+
+
+
+```julia
+simulation_time = 5.0
+dt = 0.001
+
+model_data = get_structural_model(StructuralModel, simulation_time, dt);
+```
+
+## State and Input Estimation with RxInfer
+
+In this section, we use **RxInfer** to estimate the system states and unknown input forces from the simulated noisy measurements using the Augmented State Space Model discussed.
+
+
+
+```julia
+using RxInfer
+```
+
+### Defining the AKF Smoother Model
+
+Here, we define our **Augmented Kalman Filter (AKF)** smoother using RxInfer. This probabilistic model estimates the system states and unknown input forces based on the measurements.
+- **State Prior**: We start with a prior belief about the initial state, `x0`.  
+- **State Transition**: At each time step, the system state evolves based on the transition matrix $ A $ and process noise covariance $ Q $:
+  $$
+  x[k] \sim \mathcal{N}(A x[k-1], Q).
+  $$
+- **Measurements**: The observations (sensor data) are modeled as noisy measurements of the states:
+  $$
+  y[k] \sim \mathcal{N}(G x[k], R),
+  $$
+  where $ G $ maps the states to the measurements, and $ R $ is the measurement noise covariance.
+
+
+
+```julia
+@model function smoother_model(y, x0, A, G, Q, R)
+
+    x_prior ~ x0
+    x_prev = x_prior  # initialize previous state with x_prior
+
+    for i in 1:length(y)
+        x[i] ~ MvNormalMeanCovariance(A * x_prev, Q)
+        y[i] ~ MvNormalMeanCovariance(G * x[i], R)
+        x_prev = x[i]
+    end
+
+end
+```
+
+### Running the AKF Smoother
+
+Now that we have our system set up, it's time to estimate the system states and unknown input forces using RxInfer. We'll run the **Augmented Kalman Filter (AKF) smoother** to make sense of the noisy measurements.
+
+Here’s the game plan:
+
+1. **Unpack the Data**:  
+   We grab everything we need from the `model_data` object – time, matrices, measurements, and noise covariances.
+
+2. **Set the Initial State**:  
+   We start with a prior belief about the first state, assuming it's zero with some process noise:  
+   $$
+   x_0 \sim \mathcal{N}(0, Q_{\text{akf}}).
+   $$
+
+3. **Run the Smoother**:  
+   We define a helper function to keep things tidy. This function calls RxInfer’s `infer` method, which does the heavy lifting for us.
+
+4. **Extract and Reconstruct**:  
+   - RxInfer gives us **state marginals**, which are the posterior estimates of the states.  
+   - Using a helper function, we reconstruct the **full-field responses** (displacements, velocities, and accelerations).  
+   - We also extract the estimated input forces, which are part of the augmented state.
+
+That’s it! With just a few lines of code, RxInfer takes care of the math behind the scenes and delivers smooth, reliable estimates of what’s happening inside the system.
+
+
+
+```julia
+# let's wrap the results in a struct
+struct InferenceResults
+    state_marginals
+    y_full_means
+    y_full_stds
+    p_means
+    p_stds
+end
+
+function run_smoother(model_data)
+    # unpack the model data
+    t               = model_data.t;
+    N_data          = model_data.N_data
+    A_aug           = model_data.A_aug;
+    G_aug           = model_data.G_aug;
+    G_aug_fullfield = model_data.G_aug_fullfield;
+    Q_akf           = model_data.Q_akf;
+    R               = model_data.R;
+    y_meas          = model_data.y_meas;
+    
+    # initialize the state - required when doing smoothing
+    x0 = MvNormalMeanCovariance(zeros(size(A_aug, 1)), Q_akf);
+
+    # define the smoother engine
+    function smoother_engine(y_meas, A, G, Q, R)
+        # run the akf smoother
+        result_smoother = infer(
+            model   = smoother_model(x0 = x0, A = A, G = G, Q = Q, R = R),
+            data    = (y = y_meas,),
+            options = (limit_stack_depth = 500, )
+        )
+
+        # return posteriors as this inference task returns the results as posteriors
+        # because inference is done over the full graph
+        return result_smoother.posteriors[:x]
+    end
+
+    # get the marginals of x
+    state_marginals = smoother_engine(y_meas, A_aug, G_aug, Q_akf, R)
+    
+    # reconstructing the full-field response:
+    # use helper function to reconstruct the full-field response
+    y_full_means, y_full_stds = reconstruct_full_field(state_marginals, G_aug_fullfield, N_data)
+
+    # extract the estimated input (input modeled as an augmentation state)
+    p_results_means = getindex.(mean.(state_marginals), length(state_marginals[1]))
+    p_results_stds = getindex.(std.(state_marginals), length(state_marginals[1]))
+    
+    return InferenceResults(state_marginals, y_full_means, y_full_stds, p_results_means, p_results_stds)
+end
+```
+
+
+    run_smoother (generic function with 1 method)
+
+
+### Mapping States to Full-Field Responses  
+
+In the `run_smoother` function, we used a helper function to map the **state estimates** from the AKF smoother back to the **full-field responses** (e.g., displacements, velocities, and accelerations).  
+
+Why is this important?  
+While the smoother estimates the system states, we often care about physical quantities like accelerations or displacements across the entire structure.
+
+Using the **augmented full-field matrix** $ G^* $, we compute:
+- **Response means** from state means:  
+  $$
+  \mu_y[i] = G^* \mu_x[i].
+  $$  
+- **Response uncertainties** from state covariances:  
+  $$
+  \sigma_y[i] = \sqrt{\text{diag}(G^* \Sigma_x[i] {G^*}^\top)}.
+  $$  
+
+This gives us both the expected **responses** and their **uncertainties** at each time step.  
+
+In other words, this function connects the smoother’s internal state estimates to meaningful, physical quantities, making it easy to visualize the system’s behavior.  
+
+
+
+```julia
+# helper function to reconstruct the full field response from the state posteriors
+function reconstruct_full_field(
+    x_marginals,
+    G_aug_fullfield,
+    N_data::Int
+    )
+    
+    # preallocate the full field response
+    y_means = Vector{Vector{Float64}}(undef, N_data)        # vector of vectors
+    y_stds = Vector{Vector{Float64}}(undef, N_data)
+
+    # reconstruct the full-field response using G_aug_fullfield
+    for i in 1:N_data
+        # extract the mean and covariance of the state posterior
+        state_mean = mean(x_marginals[i])       # each index is a vector
+        state_cov = cov(x_marginals[i])
+
+        # project mean and covariance onto the full-field response space
+        y_means[i] = G_aug_fullfield * state_mean
+        y_stds[i] = sqrt.(diag(G_aug_fullfield * state_cov * G_aug_fullfield'))
+    end
+
+    return y_means, y_stds
+
+end
+```
+
+
+    reconstruct_full_field (generic function with 1 method)
+
+
+We now run the AKF smoother using the structural model data to estimate the system states, reconstruct the full-field responses, and extract the input forces along with their uncertainties.
+
+Let’s fire up that RxInfer!
+
+
+
+```julia
+# run the smoother
+smoother_results = run_smoother(model_data);
+```
+
+To better understand the results, we use two helper functions to create interactive PlotlyBase using **PlotlyBase**:
+
+We first write a helper function and then plot the **true states**, **full-field response**, **input**, their **estimates**, and the associated **uncertainty**:
+
+
+```julia
+# helper function
+function plot_with_uncertainty(
+    t,
+    true_values,
+    estimated_means,
+    estimated_uncertainties,
+    ylabel_text,
+    title_text,
+    label_suffix="";
+    plot_size = (700,300),
+   
+)
+    # plot true values
+    plt = plot(
+        t,
+        true_values,
+        label="true ($label_suffix)",
+        lw=2,
+        color=:blue,
+        size=plot_size,
+        left_margin = 5Plots.mm,
+        top_margin = 5Plots.mm,  
+        bottom_margin = 5Plots.mm  
+    )
+
+    # plot estimated values with uncertainty ribbon
+    plot!(
+        plt,
+        t,
+        estimated_means,
+        ribbon=estimated_uncertainties,
+        fillalpha=0.3,
+        label="estimated ($label_suffix)",
+        lw=2,
+        color=:orange,
+        linestyle=:dash
+    )
+
+    # add labels and title
+    xlabel!("time (s)")
+    ylabel!(ylabel_text)
+    title!(title_text)
+    
+    return plt
+end
+```
+
+
+    plot_with_uncertainty (generic function with 2 methods)
+
+
+
+```julia
+# select some DOFs to plot
+ndof = size(StructuralModel.M)[1]
+
+display_state_dof    = 4                # dof 1:4 displacements, dof 5:8 velocities
+display_response_dof = 2*ndof + 1       # dof 1:4 displacements, dof 5:8 velocities, dof 9:12 accelerations
+display_input_dof    = 1                # the only one really
+
+# plot the states
+state_plot = plot_with_uncertainty(
+    model_data.t,
+    model_data.x_real[display_state_dof, :],
+    getindex.(mean.(smoother_results.state_marginals), display_state_dof),
+    getindex.(std.(smoother_results.state_marginals), display_state_dof),
+    "state value",
+    "state estimate (dof $(display_state_dof))",
+    "state dof $(display_state_dof)"
+);
+
+# plot the responses
+response_plot = plot_with_uncertainty(
+    model_data.t,
+    model_data.y_real[display_response_dof, :],
+    getindex.(smoother_results.y_full_means, display_response_dof),
+    getindex.(smoother_results.y_full_stds, display_response_dof),
+    "response value",
+    "reconstructed response (dof $(display_response_dof))",
+    "response dof $(display_response_dof)"
+);
+
+# plot the inputs
+input_plot = plot_with_uncertainty(
+    model_data.t,
+    model_data.p_real[:, display_input_dof],
+    smoother_results.p_means,
+    smoother_results.p_stds,
+    "force value",
+    "input estimate (applied at dof $(display_input_dof))",
+    "input force $(display_input_dof)"
+);
+
+display(state_plot)
+display(response_plot)
+display(input_plot)
+
+```
+
+
+<?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="700" height="300" viewBox="0 0 2800 1200">
 <defs>
   <clipPath id="clip860">
@@ -660,6 +794,10 @@ $$</li>
 <polyline clip-path="url(#clip860)" style="stroke:#0000ff; stroke-linecap:round; stroke-linejoin:round; stroke-width:8; stroke-opacity:1; fill:none" points="371.522,244.326 537.654,244.326 "/>
 <path clip-path="url(#clip860)" d="M572.75 228.319 L572.75 235.68 L581.524 235.68 L581.524 238.99 L572.75 238.99 L572.75 253.064 Q572.75 256.235 573.607 257.138 Q574.487 258.041 577.149 258.041 L581.524 258.041 L581.524 261.606 L577.149 261.606 Q572.218 261.606 570.343 259.777 Q568.468 257.925 568.468 253.064 L568.468 238.99 L565.343 238.99 L565.343 235.68 L568.468 235.68 L568.468 228.319 L572.75 228.319 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M602.148 239.661 Q601.431 239.245 600.574 239.059 Q599.741 238.851 598.723 238.851 Q595.111 238.851 593.167 241.212 Q591.246 243.55 591.246 247.948 L591.246 261.606 L586.963 261.606 L586.963 235.68 L591.246 235.68 L591.246 239.707 Q592.588 237.346 594.741 236.212 Q596.894 235.055 599.973 235.055 Q600.412 235.055 600.945 235.124 Q601.477 235.17 602.125 235.286 L602.148 239.661 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M606.176 251.374 L606.176 235.68 L610.435 235.68 L610.435 251.212 Q610.435 254.893 611.871 256.744 Q613.306 258.573 616.176 258.573 Q619.625 258.573 621.616 256.374 Q623.63 254.175 623.63 250.379 L623.63 235.68 L627.889 235.68 L627.889 261.606 L623.63 261.606 L623.63 257.624 Q622.079 259.985 620.019 261.143 Q617.982 262.277 615.273 262.277 Q610.806 262.277 608.491 259.499 Q606.176 256.721 606.176 251.374 M616.894 235.055 L616.894 235.055 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M658.838 247.578 L658.838 249.661 L639.255 249.661 Q639.533 254.059 641.894 256.374 Q644.278 258.666 648.514 258.666 Q650.968 258.666 653.259 258.064 Q655.574 257.462 657.843 256.258 L657.843 260.286 Q655.551 261.258 653.144 261.768 Q650.736 262.277 648.259 262.277 Q642.056 262.277 638.421 258.666 Q634.81 255.055 634.81 248.897 Q634.81 242.532 638.236 238.805 Q641.685 235.055 647.519 235.055 Q652.75 235.055 655.782 238.434 Q658.838 241.791 658.838 247.578 M654.579 246.328 Q654.532 242.832 652.611 240.749 Q650.713 238.666 647.565 238.666 Q644 238.666 641.847 240.68 Q639.718 242.694 639.394 246.351 L654.579 246.328 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M691.129 225.633 Q688.028 230.958 686.523 236.166 Q685.018 241.374 685.018 246.721 Q685.018 252.069 686.523 257.323 Q688.051 262.555 691.129 267.855 L687.426 267.855 Q683.954 262.416 682.217 257.161 Q680.505 251.906 680.505 246.721 Q680.505 241.559 682.217 236.328 Q683.93 231.096 687.426 225.633 L691.129 225.633 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M715.921 236.444 L715.921 240.471 Q714.115 239.545 712.171 239.082 Q710.227 238.62 708.143 238.62 Q704.972 238.62 703.375 239.592 Q701.801 240.564 701.801 242.508 Q701.801 243.99 702.935 244.846 Q704.069 245.68 707.495 246.444 L708.953 246.768 Q713.49 247.74 715.389 249.522 Q717.31 251.281 717.31 254.453 Q717.31 258.064 714.44 260.17 Q711.592 262.277 706.592 262.277 Q704.509 262.277 702.241 261.86 Q699.995 261.467 697.495 260.656 L697.495 256.258 Q699.856 257.485 702.148 258.11 Q704.44 258.712 706.685 258.712 Q709.694 258.712 711.315 257.693 Q712.935 256.652 712.935 254.777 Q712.935 253.041 711.754 252.115 Q710.597 251.189 706.639 250.332 L705.157 249.985 Q701.199 249.152 699.44 247.439 Q697.68 245.703 697.68 242.694 Q697.68 239.036 700.273 237.045 Q702.866 235.055 707.634 235.055 Q709.995 235.055 712.078 235.402 Q714.162 235.749 715.921 236.444 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M728.305 228.319 L728.305 235.68 L737.078 235.68 L737.078 238.99 L728.305 238.99 L728.305 253.064 Q728.305 256.235 729.162 257.138 Q730.041 258.041 732.703 258.041 L737.078 258.041 L737.078 261.606 L732.703 261.606 Q727.773 261.606 725.898 259.777 Q724.023 257.925 724.023 253.064 L724.023 238.99 L720.898 238.99 L720.898 235.68 L724.023 235.68 L724.023 228.319 L728.305 228.319 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M754.462 248.573 Q749.3 248.573 747.31 249.754 Q745.319 250.934 745.319 253.781 Q745.319 256.05 746.8 257.393 Q748.305 258.712 750.875 258.712 Q754.416 258.712 756.546 256.212 Q758.699 253.689 758.699 249.522 L758.699 248.573 L754.462 248.573 M762.958 246.814 L762.958 261.606 L758.699 261.606 L758.699 257.67 Q757.24 260.031 755.064 261.166 Q752.888 262.277 749.74 262.277 Q745.759 262.277 743.398 260.055 Q741.06 257.809 741.06 254.059 Q741.06 249.684 743.976 247.462 Q746.916 245.24 752.726 245.24 L758.699 245.24 L758.699 244.823 Q758.699 241.883 756.754 240.286 Q754.833 238.666 751.337 238.666 Q749.115 238.666 747.009 239.198 Q744.902 239.731 742.958 240.795 L742.958 236.86 Q745.296 235.957 747.495 235.518 Q749.694 235.055 751.777 235.055 Q757.402 235.055 760.18 237.971 Q762.958 240.888 762.958 246.814 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M775.944 228.319 L775.944 235.68 L784.717 235.68 L784.717 238.99 L775.944 238.99 L775.944 253.064 Q775.944 256.235 776.8 257.138 Q777.68 258.041 780.342 258.041 L784.717 258.041 L784.717 261.606 L780.342 261.606 Q775.411 261.606 773.536 259.777 Q771.661 257.925 771.661 253.064 L771.661 238.99 L768.536 238.99 L768.536 235.68 L771.661 235.68 L771.661 228.319 L775.944 228.319 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M812.495 247.578 L812.495 249.661 L792.911 249.661 Q793.189 254.059 795.55 256.374 Q797.934 258.666 802.171 258.666 Q804.624 258.666 806.916 258.064 Q809.231 257.462 811.499 256.258 L811.499 260.286 Q809.208 261.258 806.8 261.768 Q804.393 262.277 801.916 262.277 Q795.712 262.277 792.078 258.666 Q788.467 255.055 788.467 248.897 Q788.467 242.532 791.893 238.805 Q795.342 235.055 801.175 235.055 Q806.407 235.055 809.439 238.434 Q812.495 241.791 812.495 247.578 M808.235 246.328 Q808.189 242.832 806.268 240.749 Q804.37 238.666 801.221 238.666 Q797.657 238.666 795.504 240.68 Q793.374 242.694 793.05 246.351 L808.235 246.328 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M851.615 239.615 L851.615 225.587 L855.874 225.587 L855.874 261.606 L851.615 261.606 L851.615 257.717 Q850.272 260.031 848.212 261.166 Q846.175 262.277 843.305 262.277 Q838.606 262.277 835.643 258.527 Q832.703 254.777 832.703 248.666 Q832.703 242.555 835.643 238.805 Q838.606 235.055 843.305 235.055 Q846.175 235.055 848.212 236.189 Q850.272 237.3 851.615 239.615 M837.101 248.666 Q837.101 253.365 839.022 256.05 Q840.967 258.712 844.346 258.712 Q847.726 258.712 849.67 256.05 Q851.615 253.365 851.615 248.666 Q851.615 243.967 849.67 241.305 Q847.726 238.62 844.346 238.62 Q840.967 238.62 839.022 241.305 Q837.101 243.967 837.101 248.666 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M874.693 238.666 Q871.267 238.666 869.277 241.351 Q867.286 244.013 867.286 248.666 Q867.286 253.319 869.254 256.004 Q871.244 258.666 874.693 258.666 Q878.096 258.666 880.087 255.981 Q882.078 253.295 882.078 248.666 Q882.078 244.059 880.087 241.374 Q878.096 238.666 874.693 238.666 M874.693 235.055 Q880.249 235.055 883.42 238.666 Q886.591 242.277 886.591 248.666 Q886.591 255.031 883.42 258.666 Q880.249 262.277 874.693 262.277 Q869.115 262.277 865.943 258.666 Q862.795 255.031 862.795 248.666 Q862.795 242.277 865.943 238.666 Q869.115 235.055 874.693 235.055 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M906.776 225.587 L906.776 229.129 L902.702 229.129 Q900.411 229.129 899.508 230.055 Q898.628 230.981 898.628 233.388 L898.628 235.68 L905.642 235.68 L905.642 238.99 L898.628 238.99 L898.628 261.606 L894.346 261.606 L894.346 238.99 L890.272 238.99 L890.272 235.68 L894.346 235.68 L894.346 233.874 Q894.346 229.545 896.36 227.578 Q898.374 225.587 902.749 225.587 L906.776 225.587 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M938.86 231.12 L927.054 249.569 L938.86 249.569 L938.86 231.12 M937.633 227.046 L943.512 227.046 L943.512 249.569 L948.443 249.569 L948.443 253.457 L943.512 253.457 L943.512 261.606 L938.86 261.606 L938.86 253.457 L923.258 253.457 L923.258 248.944 L937.633 227.046 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M954.901 225.633 L958.605 225.633 Q962.077 231.096 963.79 236.328 Q965.526 241.559 965.526 246.721 Q965.526 251.906 963.79 257.161 Q962.077 262.416 958.605 267.855 L954.901 267.855 Q957.98 262.555 959.485 257.323 Q961.012 252.069 961.012 246.721 Q961.012 241.374 959.485 236.166 Q957.98 230.958 954.901 225.633 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><polyline clip-path="url(#clip860)" style="stroke:#ffa500; stroke-linecap:round; stroke-linejoin:round; stroke-width:8; stroke-opacity:1; fill:none" stroke-dasharray="32, 20" points="371.522,296.166 537.654,296.166 "/>
 <path clip-path="url(#clip860)" d="M589.371 299.418 L589.371 301.501 L569.788 301.501 Q570.065 305.899 572.426 308.214 Q574.811 310.506 579.047 310.506 Q581.5 310.506 583.792 309.904 Q586.107 309.302 588.375 308.098 L588.375 312.126 Q586.084 313.098 583.676 313.608 Q581.269 314.117 578.792 314.117 Q572.588 314.117 568.954 310.506 Q565.343 306.895 565.343 300.737 Q565.343 294.372 568.769 290.645 Q572.218 286.895 578.051 286.895 Q583.283 286.895 586.315 290.274 Q589.371 293.631 589.371 299.418 M585.112 298.168 Q585.065 294.672 583.144 292.589 Q581.246 290.506 578.098 290.506 Q574.533 290.506 572.38 292.52 Q570.25 294.534 569.926 298.191 L585.112 298.168 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M612.889 288.284 L612.889 292.311 Q611.084 291.385 609.139 290.922 Q607.195 290.46 605.111 290.46 Q601.94 290.46 600.343 291.432 Q598.769 292.404 598.769 294.348 Q598.769 295.83 599.903 296.686 Q601.037 297.52 604.463 298.284 L605.922 298.608 Q610.459 299.58 612.357 301.362 Q614.278 303.121 614.278 306.293 Q614.278 309.904 611.408 312.01 Q608.56 314.117 603.56 314.117 Q601.477 314.117 599.209 313.7 Q596.963 313.307 594.463 312.496 L594.463 308.098 Q596.824 309.325 599.116 309.95 Q601.408 310.552 603.653 310.552 Q606.662 310.552 608.283 309.533 Q609.903 308.492 609.903 306.617 Q609.903 304.881 608.723 303.955 Q607.565 303.029 603.607 302.172 L602.125 301.825 Q598.167 300.992 596.408 299.279 Q594.649 297.543 594.649 294.534 Q594.649 290.876 597.241 288.885 Q599.834 286.895 604.602 286.895 Q606.963 286.895 609.047 287.242 Q611.13 287.589 612.889 288.284 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M625.273 280.159 L625.273 287.52 L634.046 287.52 L634.046 290.83 L625.273 290.83 L625.273 304.904 Q625.273 308.075 626.13 308.978 Q627.009 309.881 629.671 309.881 L634.046 309.881 L634.046 313.446 L629.671 313.446 Q624.741 313.446 622.866 311.617 Q620.991 309.765 620.991 304.904 L620.991 290.83 L617.866 290.83 L617.866 287.52 L620.991 287.52 L620.991 280.159 L625.273 280.159 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M639.648 287.52 L643.908 287.52 L643.908 313.446 L639.648 313.446 L639.648 287.52 M639.648 277.427 L643.908 277.427 L643.908 282.821 L639.648 282.821 L639.648 277.427 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M673.005 292.497 Q674.602 289.626 676.824 288.26 Q679.046 286.895 682.055 286.895 Q686.106 286.895 688.305 289.742 Q690.504 292.566 690.504 297.797 L690.504 313.446 L686.222 313.446 L686.222 297.936 Q686.222 294.21 684.903 292.404 Q683.583 290.598 680.875 290.598 Q677.565 290.598 675.643 292.797 Q673.722 294.997 673.722 298.793 L673.722 313.446 L669.44 313.446 L669.44 297.936 Q669.44 294.186 668.12 292.404 Q666.801 290.598 664.046 290.598 Q660.782 290.598 658.861 292.821 Q656.94 295.02 656.94 298.793 L656.94 313.446 L652.657 313.446 L652.657 287.52 L656.94 287.52 L656.94 291.547 Q658.398 289.163 660.435 288.029 Q662.472 286.895 665.273 286.895 Q668.097 286.895 670.065 288.33 Q672.055 289.765 673.005 292.497 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M710.782 300.413 Q705.62 300.413 703.629 301.594 Q701.639 302.774 701.639 305.621 Q701.639 307.89 703.12 309.233 Q704.625 310.552 707.194 310.552 Q710.736 310.552 712.865 308.052 Q715.018 305.529 715.018 301.362 L715.018 300.413 L710.782 300.413 M719.277 298.654 L719.277 313.446 L715.018 313.446 L715.018 309.51 Q713.56 311.871 711.384 313.006 Q709.208 314.117 706.06 314.117 Q702.078 314.117 699.717 311.895 Q697.379 309.649 697.379 305.899 Q697.379 301.524 700.296 299.302 Q703.236 297.08 709.046 297.08 L715.018 297.08 L715.018 296.663 Q715.018 293.723 713.074 292.126 Q711.153 290.506 707.657 290.506 Q705.435 290.506 703.328 291.038 Q701.222 291.571 699.278 292.635 L699.278 288.7 Q701.616 287.797 703.815 287.358 Q706.014 286.895 708.097 286.895 Q713.722 286.895 716.5 289.811 Q719.277 292.728 719.277 298.654 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M732.264 280.159 L732.264 287.52 L741.037 287.52 L741.037 290.83 L732.264 290.83 L732.264 304.904 Q732.264 308.075 733.12 308.978 Q734 309.881 736.662 309.881 L741.037 309.881 L741.037 313.446 L736.662 313.446 Q731.731 313.446 729.856 311.617 Q727.981 309.765 727.981 304.904 L727.981 290.83 L724.856 290.83 L724.856 287.52 L727.981 287.52 L727.981 280.159 L732.264 280.159 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M768.814 299.418 L768.814 301.501 L749.231 301.501 Q749.509 305.899 751.87 308.214 Q754.254 310.506 758.49 310.506 Q760.944 310.506 763.236 309.904 Q765.55 309.302 767.819 308.098 L767.819 312.126 Q765.527 313.098 763.12 313.608 Q760.712 314.117 758.236 314.117 Q752.032 314.117 748.398 310.506 Q744.787 306.895 744.787 300.737 Q744.787 294.372 748.212 290.645 Q751.662 286.895 757.495 286.895 Q762.726 286.895 765.759 290.274 Q768.814 293.631 768.814 299.418 M764.555 298.168 Q764.509 294.672 762.587 292.589 Q760.689 290.506 757.541 290.506 Q753.976 290.506 751.824 292.52 Q749.694 294.534 749.37 298.191 L764.555 298.168 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M792.865 291.455 L792.865 277.427 L797.124 277.427 L797.124 313.446 L792.865 313.446 L792.865 309.557 Q791.522 311.871 789.462 313.006 Q787.425 314.117 784.555 314.117 Q779.856 314.117 776.893 310.367 Q773.953 306.617 773.953 300.506 Q773.953 294.395 776.893 290.645 Q779.856 286.895 784.555 286.895 Q787.425 286.895 789.462 288.029 Q791.522 289.14 792.865 291.455 M778.351 300.506 Q778.351 305.205 780.273 307.89 Q782.217 310.552 785.597 310.552 Q788.976 310.552 790.921 307.89 Q792.865 305.205 792.865 300.506 Q792.865 295.807 790.921 293.145 Q788.976 290.46 785.597 290.46 Q782.217 290.46 780.273 293.145 Q778.351 295.807 778.351 300.506 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M831.198 277.473 Q828.096 282.798 826.592 288.006 Q825.087 293.214 825.087 298.561 Q825.087 303.909 826.592 309.163 Q828.119 314.395 831.198 319.695 L827.494 319.695 Q824.022 314.256 822.286 309.001 Q820.573 303.746 820.573 298.561 Q820.573 293.399 822.286 288.168 Q823.999 282.936 827.494 277.473 L831.198 277.473 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M855.99 288.284 L855.99 292.311 Q854.184 291.385 852.24 290.922 Q850.295 290.46 848.212 290.46 Q845.041 290.46 843.443 291.432 Q841.869 292.404 841.869 294.348 Q841.869 295.83 843.004 296.686 Q844.138 297.52 847.564 298.284 L849.022 298.608 Q853.559 299.58 855.457 301.362 Q857.379 303.121 857.379 306.293 Q857.379 309.904 854.508 312.01 Q851.661 314.117 846.661 314.117 Q844.578 314.117 842.309 313.7 Q840.064 313.307 837.564 312.496 L837.564 308.098 Q839.925 309.325 842.217 309.95 Q844.508 310.552 846.754 310.552 Q849.763 310.552 851.383 309.533 Q853.004 308.492 853.004 306.617 Q853.004 304.881 851.823 303.955 Q850.666 303.029 846.707 302.172 L845.226 301.825 Q841.268 300.992 839.508 299.279 Q837.749 297.543 837.749 294.534 Q837.749 290.876 840.342 288.885 Q842.934 286.895 847.703 286.895 Q850.064 286.895 852.147 287.242 Q854.23 287.589 855.99 288.284 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M868.374 280.159 L868.374 287.52 L877.147 287.52 L877.147 290.83 L868.374 290.83 L868.374 304.904 Q868.374 308.075 869.23 308.978 Q870.11 309.881 872.772 309.881 L877.147 309.881 L877.147 313.446 L872.772 313.446 Q867.841 313.446 865.966 311.617 Q864.092 309.765 864.092 304.904 L864.092 290.83 L860.967 290.83 L860.967 287.52 L864.092 287.52 L864.092 280.159 L868.374 280.159 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M894.531 300.413 Q889.369 300.413 887.378 301.594 Q885.388 302.774 885.388 305.621 Q885.388 307.89 886.869 309.233 Q888.374 310.552 890.943 310.552 Q894.485 310.552 896.614 308.052 Q898.767 305.529 898.767 301.362 L898.767 300.413 L894.531 300.413 M903.026 298.654 L903.026 313.446 L898.767 313.446 L898.767 309.51 Q897.309 311.871 895.133 313.006 Q892.957 314.117 889.809 314.117 Q885.828 314.117 883.466 311.895 Q881.128 309.649 881.128 305.899 Q881.128 301.524 884.045 299.302 Q886.985 297.08 892.795 297.08 L898.767 297.08 L898.767 296.663 Q898.767 293.723 896.823 292.126 Q894.902 290.506 891.406 290.506 Q889.184 290.506 887.077 291.038 Q884.971 291.571 883.027 292.635 L883.027 288.7 Q885.365 287.797 887.564 287.358 Q889.763 286.895 891.846 286.895 Q897.471 286.895 900.249 289.811 Q903.026 292.728 903.026 298.654 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M916.013 280.159 L916.013 287.52 L924.786 287.52 L924.786 290.83 L916.013 290.83 L916.013 304.904 Q916.013 308.075 916.869 308.978 Q917.749 309.881 920.411 309.881 L924.786 309.881 L924.786 313.446 L920.411 313.446 Q915.48 313.446 913.605 311.617 Q911.73 309.765 911.73 304.904 L911.73 290.83 L908.605 290.83 L908.605 287.52 L911.73 287.52 L911.73 280.159 L916.013 280.159 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M952.563 299.418 L952.563 301.501 L932.98 301.501 Q933.258 305.899 935.619 308.214 Q938.003 310.506 942.239 310.506 Q944.693 310.506 946.985 309.904 Q949.299 309.302 951.568 308.098 L951.568 312.126 Q949.276 313.098 946.869 313.608 Q944.461 314.117 941.985 314.117 Q935.781 314.117 932.147 310.506 Q928.536 306.895 928.536 300.737 Q928.536 294.372 931.962 290.645 Q935.411 286.895 941.244 286.895 Q946.475 286.895 949.508 290.274 Q952.563 293.631 952.563 299.418 M948.304 298.168 Q948.258 294.672 946.336 292.589 Q944.438 290.506 941.29 290.506 Q937.725 290.506 935.573 292.52 Q933.443 294.534 933.119 298.191 L948.304 298.168 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M991.683 291.455 L991.683 277.427 L995.943 277.427 L995.943 313.446 L991.683 313.446 L991.683 309.557 Q990.341 311.871 988.281 313.006 Q986.244 314.117 983.373 314.117 Q978.674 314.117 975.711 310.367 Q972.771 306.617 972.771 300.506 Q972.771 294.395 975.711 290.645 Q978.674 286.895 983.373 286.895 Q986.244 286.895 988.281 288.029 Q990.341 289.14 991.683 291.455 M977.17 300.506 Q977.17 305.205 979.091 307.89 Q981.035 310.552 984.415 310.552 Q987.795 310.552 989.739 307.89 Q991.683 305.205 991.683 300.506 Q991.683 295.807 989.739 293.145 Q987.795 290.46 984.415 290.46 Q981.035 290.46 979.091 293.145 Q977.17 295.807 977.17 300.506 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M1014.76 290.506 Q1011.34 290.506 1009.35 293.191 Q1007.35 295.853 1007.35 300.506 Q1007.35 305.159 1009.32 307.844 Q1011.31 310.506 1014.76 310.506 Q1018.16 310.506 1020.16 307.821 Q1022.15 305.135 1022.15 300.506 Q1022.15 295.899 1020.16 293.214 Q1018.16 290.506 1014.76 290.506 M1014.76 286.895 Q1020.32 286.895 1023.49 290.506 Q1026.66 294.117 1026.66 300.506 Q1026.66 306.871 1023.49 310.506 Q1020.32 314.117 1014.76 314.117 Q1009.18 314.117 1006.01 310.506 Q1002.86 306.871 1002.86 300.506 Q1002.86 294.117 1006.01 290.506 Q1009.18 286.895 1014.76 286.895 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M1046.85 277.427 L1046.85 280.969 L1042.77 280.969 Q1040.48 280.969 1039.58 281.895 Q1038.7 282.821 1038.7 285.228 L1038.7 287.52 L1045.71 287.52 L1045.71 290.83 L1038.7 290.83 L1038.7 313.446 L1034.41 313.446 L1034.41 290.83 L1030.34 290.83 L1030.34 287.52 L1034.41 287.52 L1034.41 285.714 Q1034.41 281.385 1036.43 279.418 Q1038.44 277.427 1042.82 277.427 L1046.85 277.427 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M1078.93 282.96 L1067.12 301.409 L1078.93 301.409 L1078.93 282.96 M1077.7 278.886 L1083.58 278.886 L1083.58 301.409 L1088.51 301.409 L1088.51 305.297 L1083.58 305.297 L1083.58 313.446 L1078.93 313.446 L1078.93 305.297 L1063.33 305.297 L1063.33 300.784 L1077.7 278.886 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip860)" d="M1094.97 277.473 L1098.67 277.473 Q1102.15 282.936 1103.86 288.168 Q1105.59 293.399 1105.59 298.561 Q1105.59 303.746 1103.86 309.001 Q1102.15 314.256 1098.67 319.695 L1094.97 319.695 Q1098.05 314.395 1099.55 309.163 Q1101.08 303.909 1101.08 298.561 Q1101.08 293.214 1099.55 288.006 Q1098.05 282.798 1094.97 277.473 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /></svg>
+
+
+
+
 <?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="700" height="300" viewBox="0 0 2800 1200">
 <defs>
@@ -711,6 +849,10 @@ $$</li>
 <polyline clip-path="url(#clip950)" style="stroke:#0000ff; stroke-linecap:round; stroke-linejoin:round; stroke-width:8; stroke-opacity:1; fill:none" points="430.337,244.326 592.366,244.326 "/>
 <path clip-path="url(#clip950)" d="M626.778 228.319 L626.778 235.68 L635.551 235.68 L635.551 238.99 L626.778 238.99 L626.778 253.064 Q626.778 256.235 627.635 257.138 Q628.514 258.041 631.176 258.041 L635.551 258.041 L635.551 261.606 L631.176 261.606 Q626.246 261.606 624.371 259.777 Q622.496 257.925 622.496 253.064 L622.496 238.99 L619.371 238.99 L619.371 235.68 L622.496 235.68 L622.496 228.319 L626.778 228.319 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M656.176 239.661 Q655.459 239.245 654.602 239.059 Q653.769 238.851 652.75 238.851 Q649.139 238.851 647.195 241.212 Q645.273 243.55 645.273 247.948 L645.273 261.606 L640.991 261.606 L640.991 235.68 L645.273 235.68 L645.273 239.707 Q646.616 237.346 648.769 236.212 Q650.922 235.055 654 235.055 Q654.44 235.055 654.973 235.124 Q655.505 235.17 656.153 235.286 L656.176 239.661 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M660.204 251.374 L660.204 235.68 L664.463 235.68 L664.463 251.212 Q664.463 254.893 665.898 256.744 Q667.334 258.573 670.204 258.573 Q673.653 258.573 675.644 256.374 Q677.658 254.175 677.658 250.379 L677.658 235.68 L681.917 235.68 L681.917 261.606 L677.658 261.606 L677.658 257.624 Q676.107 259.985 674.046 261.143 Q672.009 262.277 669.301 262.277 Q664.834 262.277 662.519 259.499 Q660.204 256.721 660.204 251.374 M670.922 235.055 L670.922 235.055 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M712.866 247.578 L712.866 249.661 L693.282 249.661 Q693.56 254.059 695.921 256.374 Q698.306 258.666 702.542 258.666 Q704.995 258.666 707.287 258.064 Q709.602 257.462 711.87 256.258 L711.87 260.286 Q709.579 261.258 707.171 261.768 Q704.764 262.277 702.287 262.277 Q696.083 262.277 692.449 258.666 Q688.838 255.055 688.838 248.897 Q688.838 242.532 692.264 238.805 Q695.713 235.055 701.546 235.055 Q706.778 235.055 709.81 238.434 Q712.866 241.791 712.866 247.578 M708.606 246.328 Q708.56 242.832 706.639 240.749 Q704.741 238.666 701.593 238.666 Q698.028 238.666 695.875 240.68 Q693.745 242.694 693.421 246.351 L708.606 246.328 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M745.157 225.633 Q742.055 230.958 740.551 236.166 Q739.046 241.374 739.046 246.721 Q739.046 252.069 740.551 257.323 Q742.079 262.555 745.157 267.855 L741.454 267.855 Q737.981 262.416 736.245 257.161 Q734.532 251.906 734.532 246.721 Q734.532 241.559 736.245 236.328 Q737.958 231.096 741.454 225.633 L745.157 225.633 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M768.444 239.661 Q767.727 239.245 766.87 239.059 Q766.037 238.851 765.018 238.851 Q761.407 238.851 759.463 241.212 Q757.541 243.55 757.541 247.948 L757.541 261.606 L753.259 261.606 L753.259 235.68 L757.541 235.68 L757.541 239.707 Q758.884 237.346 761.037 236.212 Q763.19 235.055 766.268 235.055 Q766.708 235.055 767.24 235.124 Q767.773 235.17 768.421 235.286 L768.444 239.661 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M794.046 247.578 L794.046 249.661 L774.463 249.661 Q774.74 254.059 777.101 256.374 Q779.486 258.666 783.722 258.666 Q786.176 258.666 788.467 258.064 Q790.782 257.462 793.05 256.258 L793.05 260.286 Q790.759 261.258 788.351 261.768 Q785.944 262.277 783.467 262.277 Q777.264 262.277 773.629 258.666 Q770.018 255.055 770.018 248.897 Q770.018 242.532 773.444 238.805 Q776.893 235.055 782.726 235.055 Q787.958 235.055 790.99 238.434 Q794.046 241.791 794.046 247.578 M789.787 246.328 Q789.74 242.832 787.819 240.749 Q785.921 238.666 782.773 238.666 Q779.208 238.666 777.055 240.68 Q774.926 242.694 774.602 246.351 L789.787 246.328 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M817.564 236.444 L817.564 240.471 Q815.759 239.545 813.814 239.082 Q811.87 238.62 809.786 238.62 Q806.615 238.62 805.018 239.592 Q803.444 240.564 803.444 242.508 Q803.444 243.99 804.578 244.846 Q805.712 245.68 809.138 246.444 L810.597 246.768 Q815.134 247.74 817.032 249.522 Q818.953 251.281 818.953 254.453 Q818.953 258.064 816.083 260.17 Q813.236 262.277 808.236 262.277 Q806.152 262.277 803.884 261.86 Q801.638 261.467 799.138 260.656 L799.138 256.258 Q801.5 257.485 803.791 258.11 Q806.083 258.712 808.328 258.712 Q811.337 258.712 812.958 257.693 Q814.578 256.652 814.578 254.777 Q814.578 253.041 813.398 252.115 Q812.24 251.189 808.282 250.332 L806.8 249.985 Q802.842 249.152 801.083 247.439 Q799.324 245.703 799.324 242.694 Q799.324 239.036 801.916 237.045 Q804.509 235.055 809.277 235.055 Q811.638 235.055 813.722 235.402 Q815.805 235.749 817.564 236.444 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M829.856 257.717 L829.856 271.467 L825.573 271.467 L825.573 235.68 L829.856 235.68 L829.856 239.615 Q831.198 237.3 833.235 236.189 Q835.296 235.055 838.143 235.055 Q842.865 235.055 845.805 238.805 Q848.768 242.555 848.768 248.666 Q848.768 254.777 845.805 258.527 Q842.865 262.277 838.143 262.277 Q835.296 262.277 833.235 261.166 Q831.198 260.031 829.856 257.717 M844.346 248.666 Q844.346 243.967 842.402 241.305 Q840.481 238.62 837.101 238.62 Q833.722 238.62 831.777 241.305 Q829.856 243.967 829.856 248.666 Q829.856 253.365 831.777 256.05 Q833.722 258.712 837.101 258.712 Q840.481 258.712 842.402 256.05 Q844.346 253.365 844.346 248.666 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M865.874 238.666 Q862.448 238.666 860.458 241.351 Q858.467 244.013 858.467 248.666 Q858.467 253.319 860.434 256.004 Q862.425 258.666 865.874 258.666 Q869.277 258.666 871.268 255.981 Q873.258 253.295 873.258 248.666 Q873.258 244.059 871.268 241.374 Q869.277 238.666 865.874 238.666 M865.874 235.055 Q871.43 235.055 874.601 238.666 Q877.772 242.277 877.772 248.666 Q877.772 255.031 874.601 258.666 Q871.43 262.277 865.874 262.277 Q860.295 262.277 857.124 258.666 Q853.976 255.031 853.976 248.666 Q853.976 242.277 857.124 238.666 Q860.295 235.055 865.874 235.055 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M906.383 245.957 L906.383 261.606 L902.124 261.606 L902.124 246.096 Q902.124 242.416 900.689 240.587 Q899.254 238.758 896.383 238.758 Q892.934 238.758 890.943 240.957 Q888.953 243.157 888.953 246.953 L888.953 261.606 L884.67 261.606 L884.67 235.68 L888.953 235.68 L888.953 239.707 Q890.481 237.37 892.541 236.212 Q894.624 235.055 897.332 235.055 Q901.8 235.055 904.092 237.832 Q906.383 240.587 906.383 245.957 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M931.406 236.444 L931.406 240.471 Q929.601 239.545 927.656 239.082 Q925.712 238.62 923.628 238.62 Q920.457 238.62 918.86 239.592 Q917.286 240.564 917.286 242.508 Q917.286 243.99 918.42 244.846 Q919.554 245.68 922.98 246.444 L924.439 246.768 Q928.976 247.74 930.874 249.522 Q932.795 251.281 932.795 254.453 Q932.795 258.064 929.925 260.17 Q927.078 262.277 922.078 262.277 Q919.994 262.277 917.726 261.86 Q915.48 261.467 912.98 260.656 L912.98 256.258 Q915.341 257.485 917.633 258.11 Q919.925 258.712 922.17 258.712 Q925.179 258.712 926.8 257.693 Q928.42 256.652 928.42 254.777 Q928.42 253.041 927.24 252.115 Q926.082 251.189 922.124 250.332 L920.642 249.985 Q916.684 249.152 914.925 247.439 Q913.166 245.703 913.166 242.694 Q913.166 239.036 915.758 237.045 Q918.351 235.055 923.119 235.055 Q925.48 235.055 927.564 235.402 Q929.647 235.749 931.406 236.444 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M961.753 247.578 L961.753 249.661 L942.17 249.661 Q942.448 254.059 944.809 256.374 Q947.193 258.666 951.429 258.666 Q953.883 258.666 956.175 258.064 Q958.489 257.462 960.758 256.258 L960.758 260.286 Q958.466 261.258 956.059 261.768 Q953.651 262.277 951.175 262.277 Q944.971 262.277 941.337 258.666 Q937.726 255.055 937.726 248.897 Q937.726 242.532 941.152 238.805 Q944.601 235.055 950.434 235.055 Q955.665 235.055 958.698 238.434 Q961.753 241.791 961.753 247.578 M957.494 246.328 Q957.448 242.832 955.526 240.749 Q953.628 238.666 950.48 238.666 Q946.915 238.666 944.763 240.68 Q942.633 242.694 942.309 246.351 L957.494 246.328 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1000.87 239.615 L1000.87 225.587 L1005.13 225.587 L1005.13 261.606 L1000.87 261.606 L1000.87 257.717 Q999.531 260.031 997.471 261.166 Q995.434 262.277 992.563 262.277 Q987.864 262.277 984.901 258.527 Q981.962 254.777 981.962 248.666 Q981.962 242.555 984.901 238.805 Q987.864 235.055 992.563 235.055 Q995.434 235.055 997.471 236.189 Q999.531 237.3 1000.87 239.615 M986.36 248.666 Q986.36 253.365 988.281 256.05 Q990.225 258.712 993.605 258.712 Q996.985 258.712 998.929 256.05 Q1000.87 253.365 1000.87 248.666 Q1000.87 243.967 998.929 241.305 Q996.985 238.62 993.605 238.62 Q990.225 238.62 988.281 241.305 Q986.36 243.967 986.36 248.666 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1023.95 238.666 Q1020.53 238.666 1018.54 241.351 Q1016.54 244.013 1016.54 248.666 Q1016.54 253.319 1018.51 256.004 Q1020.5 258.666 1023.95 258.666 Q1027.35 258.666 1029.35 255.981 Q1031.34 253.295 1031.34 248.666 Q1031.34 244.059 1029.35 241.374 Q1027.35 238.666 1023.95 238.666 M1023.95 235.055 Q1029.51 235.055 1032.68 238.666 Q1035.85 242.277 1035.85 248.666 Q1035.85 255.031 1032.68 258.666 Q1029.51 262.277 1023.95 262.277 Q1018.37 262.277 1015.2 258.666 Q1012.05 255.031 1012.05 248.666 Q1012.05 242.277 1015.2 238.666 Q1018.37 235.055 1023.95 235.055 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1056.04 225.587 L1056.04 229.129 L1051.96 229.129 Q1049.67 229.129 1048.77 230.055 Q1047.89 230.981 1047.89 233.388 L1047.89 235.68 L1054.9 235.68 L1054.9 238.99 L1047.89 238.99 L1047.89 261.606 L1043.6 261.606 L1043.6 238.99 L1039.53 238.99 L1039.53 235.68 L1043.6 235.68 L1043.6 233.874 Q1043.6 229.545 1045.62 227.578 Q1047.63 225.587 1052.01 225.587 L1056.04 225.587 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1075.41 260.888 L1075.41 256.629 Q1077.17 257.462 1078.97 257.902 Q1080.78 258.342 1082.52 258.342 Q1087.15 258.342 1089.58 255.24 Q1092.03 252.115 1092.38 245.772 Q1091.03 247.763 1088.97 248.828 Q1086.91 249.893 1084.41 249.893 Q1079.23 249.893 1076.2 246.768 Q1073.19 243.619 1073.19 238.18 Q1073.19 232.856 1076.34 229.638 Q1079.48 226.421 1084.72 226.421 Q1090.71 226.421 1093.86 231.027 Q1097.03 235.61 1097.03 244.36 Q1097.03 252.531 1093.14 257.416 Q1089.28 262.277 1082.72 262.277 Q1080.97 262.277 1079.16 261.93 Q1077.35 261.582 1075.41 260.888 M1084.72 246.235 Q1087.86 246.235 1089.69 244.082 Q1091.54 241.93 1091.54 238.18 Q1091.54 234.453 1089.69 232.3 Q1087.86 230.124 1084.72 230.124 Q1081.57 230.124 1079.72 232.3 Q1077.89 234.453 1077.89 238.18 Q1077.89 241.93 1079.72 244.082 Q1081.57 246.235 1084.72 246.235 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1104.16 225.633 L1107.86 225.633 Q1111.34 231.096 1113.05 236.328 Q1114.78 241.559 1114.78 246.721 Q1114.78 251.906 1113.05 257.161 Q1111.34 262.416 1107.86 267.855 L1104.16 267.855 Q1107.24 262.555 1108.74 257.323 Q1110.27 252.069 1110.27 246.721 Q1110.27 241.374 1108.74 236.166 Q1107.24 230.958 1104.16 225.633 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><polyline clip-path="url(#clip950)" style="stroke:#ffa500; stroke-linecap:round; stroke-linejoin:round; stroke-width:8; stroke-opacity:1; fill:none" stroke-dasharray="32, 20" points="430.337,296.166 592.366,296.166 "/>
 <path clip-path="url(#clip950)" d="M643.399 299.418 L643.399 301.501 L623.815 301.501 Q624.093 305.899 626.454 308.214 Q628.838 310.506 633.074 310.506 Q635.528 310.506 637.82 309.904 Q640.135 309.302 642.403 308.098 L642.403 312.126 Q640.111 313.098 637.704 313.608 Q635.297 314.117 632.82 314.117 Q626.616 314.117 622.982 310.506 Q619.371 306.895 619.371 300.737 Q619.371 294.372 622.797 290.645 Q626.246 286.895 632.079 286.895 Q637.311 286.895 640.343 290.274 Q643.399 293.631 643.399 299.418 M639.139 298.168 Q639.093 294.672 637.172 292.589 Q635.274 290.506 632.125 290.506 Q628.561 290.506 626.408 292.52 Q624.278 294.534 623.954 298.191 L639.139 298.168 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M666.917 288.284 L666.917 292.311 Q665.111 291.385 663.167 290.922 Q661.222 290.46 659.139 290.46 Q655.968 290.46 654.371 291.432 Q652.797 292.404 652.797 294.348 Q652.797 295.83 653.931 296.686 Q655.065 297.52 658.491 298.284 L659.949 298.608 Q664.486 299.58 666.384 301.362 Q668.306 303.121 668.306 306.293 Q668.306 309.904 665.435 312.01 Q662.588 314.117 657.588 314.117 Q655.505 314.117 653.236 313.7 Q650.991 313.307 648.491 312.496 L648.491 308.098 Q650.852 309.325 653.144 309.95 Q655.435 310.552 657.681 310.552 Q660.69 310.552 662.31 309.533 Q663.931 308.492 663.931 306.617 Q663.931 304.881 662.75 303.955 Q661.593 303.029 657.635 302.172 L656.153 301.825 Q652.195 300.992 650.436 299.279 Q648.676 297.543 648.676 294.534 Q648.676 290.876 651.269 288.885 Q653.861 286.895 658.63 286.895 Q660.991 286.895 663.074 287.242 Q665.158 287.589 666.917 288.284 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M679.301 280.159 L679.301 287.52 L688.074 287.52 L688.074 290.83 L679.301 290.83 L679.301 304.904 Q679.301 308.075 680.158 308.978 Q681.037 309.881 683.699 309.881 L688.074 309.881 L688.074 313.446 L683.699 313.446 Q678.769 313.446 676.894 311.617 Q675.019 309.765 675.019 304.904 L675.019 290.83 L671.894 290.83 L671.894 287.52 L675.019 287.52 L675.019 280.159 L679.301 280.159 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M693.676 287.52 L697.935 287.52 L697.935 313.446 L693.676 313.446 L693.676 287.52 M693.676 277.427 L697.935 277.427 L697.935 282.821 L693.676 282.821 L693.676 277.427 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M727.032 292.497 Q728.63 289.626 730.852 288.26 Q733.074 286.895 736.083 286.895 Q740.134 286.895 742.333 289.742 Q744.532 292.566 744.532 297.797 L744.532 313.446 L740.25 313.446 L740.25 297.936 Q740.25 294.21 738.93 292.404 Q737.611 290.598 734.903 290.598 Q731.592 290.598 729.671 292.797 Q727.75 294.997 727.75 298.793 L727.75 313.446 L723.468 313.446 L723.468 297.936 Q723.468 294.186 722.148 292.404 Q720.829 290.598 718.074 290.598 Q714.81 290.598 712.889 292.821 Q710.968 295.02 710.968 298.793 L710.968 313.446 L706.685 313.446 L706.685 287.52 L710.968 287.52 L710.968 291.547 Q712.426 289.163 714.463 288.029 Q716.5 286.895 719.301 286.895 Q722.125 286.895 724.093 288.33 Q726.083 289.765 727.032 292.497 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M764.81 300.413 Q759.648 300.413 757.657 301.594 Q755.666 302.774 755.666 305.621 Q755.666 307.89 757.148 309.233 Q758.653 310.552 761.222 310.552 Q764.764 310.552 766.893 308.052 Q769.046 305.529 769.046 301.362 L769.046 300.413 L764.81 300.413 M773.305 298.654 L773.305 313.446 L769.046 313.446 L769.046 309.51 Q767.588 311.871 765.412 313.006 Q763.236 314.117 760.088 314.117 Q756.106 314.117 753.745 311.895 Q751.407 309.649 751.407 305.899 Q751.407 301.524 754.324 299.302 Q757.264 297.08 763.074 297.08 L769.046 297.08 L769.046 296.663 Q769.046 293.723 767.102 292.126 Q765.18 290.506 761.685 290.506 Q759.463 290.506 757.356 291.038 Q755.25 291.571 753.305 292.635 L753.305 288.7 Q755.643 287.797 757.842 287.358 Q760.041 286.895 762.125 286.895 Q767.75 286.895 770.527 289.811 Q773.305 292.728 773.305 298.654 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M786.291 280.159 L786.291 287.52 L795.064 287.52 L795.064 290.83 L786.291 290.83 L786.291 304.904 Q786.291 308.075 787.148 308.978 Q788.027 309.881 790.689 309.881 L795.064 309.881 L795.064 313.446 L790.689 313.446 Q785.759 313.446 783.884 311.617 Q782.009 309.765 782.009 304.904 L782.009 290.83 L778.884 290.83 L778.884 287.52 L782.009 287.52 L782.009 280.159 L786.291 280.159 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M822.842 299.418 L822.842 301.501 L803.259 301.501 Q803.537 305.899 805.898 308.214 Q808.282 310.506 812.518 310.506 Q814.972 310.506 817.263 309.904 Q819.578 309.302 821.847 308.098 L821.847 312.126 Q819.555 313.098 817.148 313.608 Q814.74 314.117 812.263 314.117 Q806.06 314.117 802.425 310.506 Q798.814 306.895 798.814 300.737 Q798.814 294.372 802.24 290.645 Q805.689 286.895 811.523 286.895 Q816.754 286.895 819.786 290.274 Q822.842 293.631 822.842 299.418 M818.583 298.168 Q818.536 294.672 816.615 292.589 Q814.717 290.506 811.569 290.506 Q808.004 290.506 805.851 292.52 Q803.722 294.534 803.398 298.191 L818.583 298.168 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M846.893 291.455 L846.893 277.427 L851.152 277.427 L851.152 313.446 L846.893 313.446 L846.893 309.557 Q845.55 311.871 843.49 313.006 Q841.453 314.117 838.583 314.117 Q833.884 314.117 830.921 310.367 Q827.981 306.617 827.981 300.506 Q827.981 294.395 830.921 290.645 Q833.884 286.895 838.583 286.895 Q841.453 286.895 843.49 288.029 Q845.55 289.14 846.893 291.455 M832.379 300.506 Q832.379 305.205 834.3 307.89 Q836.245 310.552 839.624 310.552 Q843.004 310.552 844.948 307.89 Q846.893 305.205 846.893 300.506 Q846.893 295.807 844.948 293.145 Q843.004 290.46 839.624 290.46 Q836.245 290.46 834.3 293.145 Q832.379 295.807 832.379 300.506 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M885.226 277.473 Q882.124 282.798 880.619 288.006 Q879.115 293.214 879.115 298.561 Q879.115 303.909 880.619 309.163 Q882.147 314.395 885.226 319.695 L881.522 319.695 Q878.05 314.256 876.314 309.001 Q874.601 303.746 874.601 298.561 Q874.601 293.399 876.314 288.168 Q878.027 282.936 881.522 277.473 L885.226 277.473 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M908.513 291.501 Q907.795 291.085 906.939 290.899 Q906.105 290.691 905.087 290.691 Q901.476 290.691 899.531 293.052 Q897.61 295.39 897.61 299.788 L897.61 313.446 L893.328 313.446 L893.328 287.52 L897.61 287.52 L897.61 291.547 Q898.953 289.186 901.105 288.052 Q903.258 286.895 906.337 286.895 Q906.777 286.895 907.309 286.964 Q907.842 287.01 908.49 287.126 L908.513 291.501 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M934.115 299.418 L934.115 301.501 L914.531 301.501 Q914.809 305.899 917.17 308.214 Q919.554 310.506 923.791 310.506 Q926.244 310.506 928.536 309.904 Q930.851 309.302 933.119 308.098 L933.119 312.126 Q930.828 313.098 928.42 313.608 Q926.013 314.117 923.536 314.117 Q917.332 314.117 913.698 310.506 Q910.087 306.895 910.087 300.737 Q910.087 294.372 913.513 290.645 Q916.962 286.895 922.795 286.895 Q928.027 286.895 931.059 290.274 Q934.115 293.631 934.115 299.418 M929.855 298.168 Q929.809 294.672 927.888 292.589 Q925.99 290.506 922.841 290.506 Q919.277 290.506 917.124 292.52 Q914.994 294.534 914.67 298.191 L929.855 298.168 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M957.633 288.284 L957.633 292.311 Q955.827 291.385 953.883 290.922 Q951.939 290.46 949.855 290.46 Q946.684 290.46 945.087 291.432 Q943.513 292.404 943.513 294.348 Q943.513 295.83 944.647 296.686 Q945.781 297.52 949.207 298.284 L950.665 298.608 Q955.202 299.58 957.101 301.362 Q959.022 303.121 959.022 306.293 Q959.022 309.904 956.151 312.01 Q953.304 314.117 948.304 314.117 Q946.221 314.117 943.952 313.7 Q941.707 313.307 939.207 312.496 L939.207 308.098 Q941.568 309.325 943.86 309.95 Q946.152 310.552 948.397 310.552 Q951.406 310.552 953.026 309.533 Q954.647 308.492 954.647 306.617 Q954.647 304.881 953.466 303.955 Q952.309 303.029 948.351 302.172 L946.869 301.825 Q942.911 300.992 941.152 299.279 Q939.392 297.543 939.392 294.534 Q939.392 290.876 941.985 288.885 Q944.577 286.895 949.346 286.895 Q951.707 286.895 953.79 287.242 Q955.874 287.589 957.633 288.284 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M969.925 309.557 L969.925 323.307 L965.642 323.307 L965.642 287.52 L969.925 287.52 L969.925 291.455 Q971.267 289.14 973.304 288.029 Q975.364 286.895 978.212 286.895 Q982.934 286.895 985.874 290.645 Q988.836 294.395 988.836 300.506 Q988.836 306.617 985.874 310.367 Q982.934 314.117 978.212 314.117 Q975.364 314.117 973.304 313.006 Q971.267 311.871 969.925 309.557 M984.415 300.506 Q984.415 295.807 982.471 293.145 Q980.549 290.46 977.17 290.46 Q973.79 290.46 971.846 293.145 Q969.925 295.807 969.925 300.506 Q969.925 305.205 971.846 307.89 Q973.79 310.552 977.17 310.552 Q980.549 310.552 982.471 307.89 Q984.415 305.205 984.415 300.506 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1005.94 290.506 Q1002.52 290.506 1000.53 293.191 Q998.535 295.853 998.535 300.506 Q998.535 305.159 1000.5 307.844 Q1002.49 310.506 1005.94 310.506 Q1009.35 310.506 1011.34 307.821 Q1013.33 305.135 1013.33 300.506 Q1013.33 295.899 1011.34 293.214 Q1009.35 290.506 1005.94 290.506 M1005.94 286.895 Q1011.5 286.895 1014.67 290.506 Q1017.84 294.117 1017.84 300.506 Q1017.84 306.871 1014.67 310.506 Q1011.5 314.117 1005.94 314.117 Q1000.36 314.117 997.193 310.506 Q994.045 306.871 994.045 300.506 Q994.045 294.117 997.193 290.506 Q1000.36 286.895 1005.94 286.895 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1046.45 297.797 L1046.45 313.446 L1042.19 313.446 L1042.19 297.936 Q1042.19 294.256 1040.76 292.427 Q1039.32 290.598 1036.45 290.598 Q1033 290.598 1031.01 292.797 Q1029.02 294.997 1029.02 298.793 L1029.02 313.446 L1024.74 313.446 L1024.74 287.52 L1029.02 287.52 L1029.02 291.547 Q1030.55 289.21 1032.61 288.052 Q1034.69 286.895 1037.4 286.895 Q1041.87 286.895 1044.16 289.672 Q1046.45 292.427 1046.45 297.797 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1071.47 288.284 L1071.47 292.311 Q1069.67 291.385 1067.72 290.922 Q1065.78 290.46 1063.7 290.46 Q1060.53 290.46 1058.93 291.432 Q1057.35 292.404 1057.35 294.348 Q1057.35 295.83 1058.49 296.686 Q1059.62 297.52 1063.05 298.284 L1064.51 298.608 Q1069.04 299.58 1070.94 301.362 Q1072.86 303.121 1072.86 306.293 Q1072.86 309.904 1069.99 312.01 Q1067.15 314.117 1062.15 314.117 Q1060.06 314.117 1057.79 313.7 Q1055.55 313.307 1053.05 312.496 L1053.05 308.098 Q1055.41 309.325 1057.7 309.95 Q1059.99 310.552 1062.24 310.552 Q1065.25 310.552 1066.87 309.533 Q1068.49 308.492 1068.49 306.617 Q1068.49 304.881 1067.31 303.955 Q1066.15 303.029 1062.19 302.172 L1060.71 301.825 Q1056.75 300.992 1054.99 299.279 Q1053.23 297.543 1053.23 294.534 Q1053.23 290.876 1055.83 288.885 Q1058.42 286.895 1063.19 286.895 Q1065.55 286.895 1067.63 287.242 Q1069.72 287.589 1071.47 288.284 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1101.82 299.418 L1101.82 301.501 L1082.24 301.501 Q1082.52 305.899 1084.88 308.214 Q1087.26 310.506 1091.5 310.506 Q1093.95 310.506 1096.24 309.904 Q1098.56 309.302 1100.83 308.098 L1100.83 312.126 Q1098.53 313.098 1096.13 313.608 Q1093.72 314.117 1091.24 314.117 Q1085.04 314.117 1081.41 310.506 Q1077.79 306.895 1077.79 300.737 Q1077.79 294.372 1081.22 290.645 Q1084.67 286.895 1090.5 286.895 Q1095.73 286.895 1098.77 290.274 Q1101.82 293.631 1101.82 299.418 M1097.56 298.168 Q1097.52 294.672 1095.6 292.589 Q1093.7 290.506 1090.55 290.506 Q1086.98 290.506 1084.83 292.52 Q1082.7 294.534 1082.38 298.191 L1097.56 298.168 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1140.94 291.455 L1140.94 277.427 L1145.2 277.427 L1145.2 313.446 L1140.94 313.446 L1140.94 309.557 Q1139.6 311.871 1137.54 313.006 Q1135.5 314.117 1132.63 314.117 Q1127.93 314.117 1124.97 310.367 Q1122.03 306.617 1122.03 300.506 Q1122.03 294.395 1124.97 290.645 Q1127.93 286.895 1132.63 286.895 Q1135.5 286.895 1137.54 288.029 Q1139.6 289.14 1140.94 291.455 M1126.43 300.506 Q1126.43 305.205 1128.35 307.89 Q1130.29 310.552 1133.67 310.552 Q1137.05 310.552 1139 307.89 Q1140.94 305.205 1140.94 300.506 Q1140.94 295.807 1139 293.145 Q1137.05 290.46 1133.67 290.46 Q1130.29 290.46 1128.35 293.145 Q1126.43 295.807 1126.43 300.506 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1164.02 290.506 Q1160.59 290.506 1158.6 293.191 Q1156.61 295.853 1156.61 300.506 Q1156.61 305.159 1158.58 307.844 Q1160.57 310.506 1164.02 310.506 Q1167.42 310.506 1169.41 307.821 Q1171.4 305.135 1171.4 300.506 Q1171.4 295.899 1169.41 293.214 Q1167.42 290.506 1164.02 290.506 M1164.02 286.895 Q1169.58 286.895 1172.75 290.506 Q1175.92 294.117 1175.92 300.506 Q1175.92 306.871 1172.75 310.506 Q1169.58 314.117 1164.02 314.117 Q1158.44 314.117 1155.27 310.506 Q1152.12 306.871 1152.12 300.506 Q1152.12 294.117 1155.27 290.506 Q1158.44 286.895 1164.02 286.895 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1196.1 277.427 L1196.1 280.969 L1192.03 280.969 Q1189.74 280.969 1188.84 281.895 Q1187.96 282.821 1187.96 285.228 L1187.96 287.52 L1194.97 287.52 L1194.97 290.83 L1187.96 290.83 L1187.96 313.446 L1183.67 313.446 L1183.67 290.83 L1179.6 290.83 L1179.6 287.52 L1183.67 287.52 L1183.67 285.714 Q1183.67 281.385 1185.69 279.418 Q1187.7 277.427 1192.08 277.427 L1196.1 277.427 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1215.48 312.728 L1215.48 308.469 Q1217.24 309.302 1219.04 309.742 Q1220.85 310.182 1222.59 310.182 Q1227.21 310.182 1229.65 307.08 Q1232.1 303.955 1232.45 297.612 Q1231.1 299.603 1229.04 300.668 Q1226.98 301.733 1224.48 301.733 Q1219.3 301.733 1216.27 298.608 Q1213.26 295.459 1213.26 290.02 Q1213.26 284.696 1216.4 281.478 Q1219.55 278.261 1224.78 278.261 Q1230.78 278.261 1233.93 282.867 Q1237.1 287.45 1237.1 296.2 Q1237.1 304.371 1233.21 309.256 Q1229.34 314.117 1222.79 314.117 Q1221.03 314.117 1219.23 313.77 Q1217.42 313.422 1215.48 312.728 M1224.78 298.075 Q1227.93 298.075 1229.76 295.922 Q1231.61 293.77 1231.61 290.02 Q1231.61 286.293 1229.76 284.14 Q1227.93 281.964 1224.78 281.964 Q1221.64 281.964 1219.78 284.14 Q1217.96 286.293 1217.96 290.02 Q1217.96 293.77 1219.78 295.922 Q1221.64 298.075 1224.78 298.075 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip950)" d="M1244.23 277.473 L1247.93 277.473 Q1251.4 282.936 1253.12 288.168 Q1254.85 293.399 1254.85 298.561 Q1254.85 303.746 1253.12 309.001 Q1251.4 314.256 1247.93 319.695 L1244.23 319.695 Q1247.31 314.395 1248.81 309.163 Q1250.34 303.909 1250.34 298.561 Q1250.34 293.214 1248.81 288.006 Q1247.31 282.798 1244.23 277.473 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /></svg>
+
+
+
+
 <?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="700" height="300" viewBox="0 0 2800 1200">
 <defs>
@@ -760,1923 +902,14 @@ $$</li>
 <polyline clip-path="url(#clip040)" style="stroke:#0000ff; stroke-linecap:round; stroke-linejoin:round; stroke-width:8; stroke-opacity:1; fill:none" points="414.743,862.201 577.86,862.201 "/>
 <path clip-path="url(#clip040)" d="M612.453 846.194 L612.453 853.555 L621.227 853.555 L621.227 856.865 L612.453 856.865 L612.453 870.939 Q612.453 874.11 613.31 875.013 Q614.19 875.916 616.852 875.916 L621.227 875.916 L621.227 879.481 L616.852 879.481 Q611.921 879.481 610.046 877.652 Q608.171 875.8 608.171 870.939 L608.171 856.865 L605.046 856.865 L605.046 853.555 L608.171 853.555 L608.171 846.194 L612.453 846.194 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M641.851 857.536 Q641.134 857.12 640.277 856.935 Q639.444 856.726 638.426 856.726 Q634.814 856.726 632.87 859.087 Q630.949 861.425 630.949 865.823 L630.949 879.481 L626.666 879.481 L626.666 853.555 L630.949 853.555 L630.949 857.583 Q632.291 855.222 634.444 854.087 Q636.597 852.93 639.676 852.93 Q640.115 852.93 640.648 852.999 Q641.18 853.046 641.828 853.161 L641.851 857.536 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M645.879 869.249 L645.879 853.555 L650.138 853.555 L650.138 869.087 Q650.138 872.768 651.574 874.62 Q653.009 876.448 655.879 876.448 Q659.328 876.448 661.319 874.249 Q663.333 872.05 663.333 868.254 L663.333 853.555 L667.592 853.555 L667.592 879.481 L663.333 879.481 L663.333 875.499 Q661.782 877.86 659.722 879.018 Q657.685 880.152 654.976 880.152 Q650.509 880.152 648.194 877.374 Q645.879 874.597 645.879 869.249 M656.597 852.93 L656.597 852.93 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M698.541 865.453 L698.541 867.536 L678.958 867.536 Q679.236 871.934 681.597 874.249 Q683.981 876.541 688.217 876.541 Q690.671 876.541 692.962 875.939 Q695.277 875.337 697.546 874.134 L697.546 878.161 Q695.254 879.134 692.847 879.643 Q690.439 880.152 687.962 880.152 Q681.759 880.152 678.124 876.541 Q674.513 872.93 674.513 866.772 Q674.513 860.407 677.939 856.68 Q681.388 852.93 687.222 852.93 Q692.453 852.93 695.485 856.31 Q698.541 859.666 698.541 865.453 M694.282 864.203 Q694.235 860.708 692.314 858.624 Q690.416 856.541 687.268 856.541 Q683.703 856.541 681.55 858.555 Q679.421 860.569 679.097 864.226 L694.282 864.203 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M730.832 843.509 Q727.731 848.833 726.226 854.041 Q724.721 859.249 724.721 864.597 Q724.721 869.944 726.226 875.198 Q727.754 880.43 730.832 885.731 L727.129 885.731 Q723.657 880.291 721.92 875.036 Q720.208 869.782 720.208 864.597 Q720.208 859.435 721.92 854.203 Q723.633 848.972 727.129 843.509 L730.832 843.509 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M739.096 853.555 L743.356 853.555 L743.356 879.481 L739.096 879.481 L739.096 853.555 M739.096 843.462 L743.356 843.462 L743.356 848.856 L739.096 848.856 L739.096 843.462 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M773.818 863.833 L773.818 879.481 L769.559 879.481 L769.559 863.972 Q769.559 860.291 768.124 858.462 Q766.689 856.634 763.818 856.634 Q760.369 856.634 758.379 858.833 Q756.388 861.032 756.388 864.828 L756.388 879.481 L752.105 879.481 L752.105 853.555 L756.388 853.555 L756.388 857.583 Q757.916 855.245 759.976 854.087 Q762.059 852.93 764.767 852.93 Q769.235 852.93 771.527 855.708 Q773.818 858.462 773.818 863.833 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M786.434 875.592 L786.434 889.342 L782.152 889.342 L782.152 853.555 L786.434 853.555 L786.434 857.49 Q787.777 855.175 789.814 854.064 Q791.874 852.93 794.721 852.93 Q799.443 852.93 802.383 856.68 Q805.346 860.43 805.346 866.541 Q805.346 872.652 802.383 876.402 Q799.443 880.152 794.721 880.152 Q791.874 880.152 789.814 879.041 Q787.777 877.907 786.434 875.592 M800.925 866.541 Q800.925 861.842 798.98 859.18 Q797.059 856.495 793.679 856.495 Q790.3 856.495 788.355 859.18 Q786.434 861.842 786.434 866.541 Q786.434 871.24 788.355 873.925 Q790.3 876.587 793.679 876.587 Q797.059 876.587 798.98 873.925 Q800.925 871.24 800.925 866.541 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M811.966 869.249 L811.966 853.555 L816.226 853.555 L816.226 869.087 Q816.226 872.768 817.661 874.62 Q819.096 876.448 821.966 876.448 Q825.415 876.448 827.406 874.249 Q829.42 872.05 829.42 868.254 L829.42 853.555 L833.679 853.555 L833.679 879.481 L829.42 879.481 L829.42 875.499 Q827.869 877.86 825.809 879.018 Q823.772 880.152 821.063 880.152 Q816.596 880.152 814.281 877.374 Q811.966 874.597 811.966 869.249 M822.684 852.93 L822.684 852.93 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M846.665 846.194 L846.665 853.555 L855.438 853.555 L855.438 856.865 L846.665 856.865 L846.665 870.939 Q846.665 874.11 847.522 875.013 Q848.401 875.916 851.063 875.916 L855.438 875.916 L855.438 879.481 L851.063 879.481 Q846.133 879.481 844.258 877.652 Q842.383 875.8 842.383 870.939 L842.383 856.865 L839.258 856.865 L839.258 853.555 L842.383 853.555 L842.383 846.194 L846.665 846.194 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M889.234 843.462 L889.234 847.004 L885.16 847.004 Q882.869 847.004 881.966 847.93 Q881.086 848.856 881.086 851.263 L881.086 853.555 L888.1 853.555 L888.1 856.865 L881.086 856.865 L881.086 879.481 L876.804 879.481 L876.804 856.865 L872.73 856.865 L872.73 853.555 L876.804 853.555 L876.804 851.749 Q876.804 847.421 878.818 845.453 Q880.832 843.462 885.207 843.462 L889.234 843.462 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M902.845 856.541 Q899.42 856.541 897.429 859.226 Q895.438 861.888 895.438 866.541 Q895.438 871.194 897.406 873.879 Q899.396 876.541 902.845 876.541 Q906.248 876.541 908.239 873.856 Q910.23 871.171 910.23 866.541 Q910.23 861.935 908.239 859.249 Q906.248 856.541 902.845 856.541 M902.845 852.93 Q908.401 852.93 911.572 856.541 Q914.743 860.152 914.743 866.541 Q914.743 872.907 911.572 876.541 Q908.401 880.152 902.845 880.152 Q897.267 880.152 894.095 876.541 Q890.947 872.907 890.947 866.541 Q890.947 860.152 894.095 856.541 Q897.267 852.93 902.845 852.93 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M936.827 857.536 Q936.109 857.12 935.253 856.935 Q934.419 856.726 933.401 856.726 Q929.79 856.726 927.845 859.087 Q925.924 861.425 925.924 865.823 L925.924 879.481 L921.642 879.481 L921.642 853.555 L925.924 853.555 L925.924 857.583 Q927.267 855.222 929.419 854.087 Q931.572 852.93 934.651 852.93 Q935.091 852.93 935.623 852.999 Q936.155 853.046 936.804 853.161 L936.827 857.536 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M958.91 854.55 L958.91 858.532 Q957.104 857.536 955.276 857.05 Q953.47 856.541 951.618 856.541 Q947.475 856.541 945.183 859.18 Q942.891 861.796 942.891 866.541 Q942.891 871.286 945.183 873.925 Q947.475 876.541 951.618 876.541 Q953.47 876.541 955.276 876.055 Q957.104 875.546 958.91 874.55 L958.91 878.485 Q957.128 879.319 955.206 879.735 Q953.308 880.152 951.155 880.152 Q945.299 880.152 941.85 876.472 Q938.401 872.791 938.401 866.541 Q938.401 860.198 941.873 856.564 Q945.368 852.93 951.433 852.93 Q953.401 852.93 955.276 853.347 Q957.151 853.74 958.91 854.55 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M988.493 865.453 L988.493 867.536 L968.91 867.536 Q969.188 871.934 971.549 874.249 Q973.933 876.541 978.169 876.541 Q980.623 876.541 982.914 875.939 Q985.229 875.337 987.498 874.134 L987.498 878.161 Q985.206 879.134 982.799 879.643 Q980.391 880.152 977.914 880.152 Q971.711 880.152 968.077 876.541 Q964.465 872.93 964.465 866.772 Q964.465 860.407 967.891 856.68 Q971.34 852.93 977.174 852.93 Q982.405 852.93 985.438 856.31 Q988.493 859.666 988.493 865.453 M984.234 864.203 Q984.188 860.708 982.266 858.624 Q980.368 856.541 977.22 856.541 Q973.655 856.541 971.502 858.555 Q969.373 860.569 969.049 864.226 L984.234 864.203 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M1011.97 875.546 L1019.6 875.546 L1019.6 849.18 L1011.29 850.847 L1011.29 846.587 L1019.56 844.921 L1024.23 844.921 L1024.23 875.546 L1031.87 875.546 L1031.87 879.481 L1011.97 879.481 L1011.97 875.546 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M1040.04 843.509 L1043.75 843.509 Q1047.22 848.972 1048.93 854.203 Q1050.67 859.435 1050.67 864.597 Q1050.67 869.782 1048.93 875.036 Q1047.22 880.291 1043.75 885.731 L1040.04 885.731 Q1043.12 880.43 1044.63 875.198 Q1046.15 869.944 1046.15 864.597 Q1046.15 859.249 1044.63 854.041 Q1043.12 848.833 1040.04 843.509 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><polyline clip-path="url(#clip040)" style="stroke:#ffa500; stroke-linecap:round; stroke-linejoin:round; stroke-width:8; stroke-opacity:1; fill:none" stroke-dasharray="32, 20" points="414.743,914.041 577.86,914.041 "/>
 <path clip-path="url(#clip040)" d="M629.074 917.293 L629.074 919.376 L609.491 919.376 Q609.768 923.774 612.129 926.089 Q614.514 928.381 618.75 928.381 Q621.203 928.381 623.495 927.779 Q625.81 927.177 628.078 925.974 L628.078 930.001 Q625.787 930.974 623.379 931.483 Q620.972 931.992 618.495 931.992 Q612.291 931.992 608.657 928.381 Q605.046 924.77 605.046 918.612 Q605.046 912.247 608.472 908.52 Q611.921 904.77 617.754 904.77 Q622.986 904.77 626.018 908.15 Q629.074 911.506 629.074 917.293 M624.814 916.043 Q624.768 912.548 622.847 910.464 Q620.949 908.381 617.801 908.381 Q614.236 908.381 612.083 910.395 Q609.953 912.409 609.629 916.066 L624.814 916.043 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M652.592 906.159 L652.592 910.187 Q650.787 909.261 648.842 908.798 Q646.898 908.335 644.814 908.335 Q641.643 908.335 640.046 909.307 Q638.472 910.279 638.472 912.224 Q638.472 913.705 639.606 914.562 Q640.74 915.395 644.166 916.159 L645.625 916.483 Q650.162 917.455 652.06 919.237 Q653.981 920.997 653.981 924.168 Q653.981 927.779 651.111 929.886 Q648.263 931.992 643.263 931.992 Q641.18 931.992 638.912 931.575 Q636.666 931.182 634.166 930.372 L634.166 925.974 Q636.527 927.2 638.819 927.825 Q641.111 928.427 643.356 928.427 Q646.365 928.427 647.986 927.409 Q649.606 926.367 649.606 924.492 Q649.606 922.756 648.425 921.83 Q647.268 920.904 643.31 920.048 L641.828 919.7 Q637.87 918.867 636.111 917.154 Q634.351 915.418 634.351 912.409 Q634.351 908.751 636.944 906.761 Q639.537 904.77 644.305 904.77 Q646.666 904.77 648.75 905.117 Q650.833 905.464 652.592 906.159 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M664.976 898.034 L664.976 905.395 L673.749 905.395 L673.749 908.705 L664.976 908.705 L664.976 922.779 Q664.976 925.95 665.833 926.853 Q666.712 927.756 669.374 927.756 L673.749 927.756 L673.749 931.321 L669.374 931.321 Q664.444 931.321 662.569 929.492 Q660.694 927.64 660.694 922.779 L660.694 908.705 L657.569 908.705 L657.569 905.395 L660.694 905.395 L660.694 898.034 L664.976 898.034 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M679.351 905.395 L683.61 905.395 L683.61 931.321 L679.351 931.321 L679.351 905.395 M679.351 895.302 L683.61 895.302 L683.61 900.696 L679.351 900.696 L679.351 895.302 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M712.708 910.372 Q714.305 907.501 716.527 906.136 Q718.749 904.77 721.758 904.77 Q725.809 904.77 728.008 907.617 Q730.207 910.441 730.207 915.673 L730.207 931.321 L725.925 931.321 L725.925 915.812 Q725.925 912.085 724.606 910.279 Q723.286 908.474 720.578 908.474 Q717.268 908.474 715.346 910.673 Q713.425 912.872 713.425 916.668 L713.425 931.321 L709.143 931.321 L709.143 915.812 Q709.143 912.062 707.823 910.279 Q706.504 908.474 703.749 908.474 Q700.485 908.474 698.564 910.696 Q696.643 912.895 696.643 916.668 L696.643 931.321 L692.36 931.321 L692.36 905.395 L696.643 905.395 L696.643 909.423 Q698.101 907.038 700.138 905.904 Q702.175 904.77 704.976 904.77 Q707.8 904.77 709.768 906.205 Q711.758 907.64 712.708 910.372 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M750.485 918.288 Q745.323 918.288 743.332 919.469 Q741.342 920.65 741.342 923.497 Q741.342 925.765 742.823 927.108 Q744.328 928.427 746.897 928.427 Q750.439 928.427 752.568 925.927 Q754.721 923.404 754.721 919.237 L754.721 918.288 L750.485 918.288 M758.98 916.529 L758.98 931.321 L754.721 931.321 L754.721 927.386 Q753.263 929.747 751.087 930.881 Q748.911 931.992 745.763 931.992 Q741.781 931.992 739.42 929.77 Q737.082 927.524 737.082 923.774 Q737.082 919.4 739.999 917.177 Q742.939 914.955 748.749 914.955 L754.721 914.955 L754.721 914.538 Q754.721 911.599 752.777 910.001 Q750.855 908.381 747.36 908.381 Q745.138 908.381 743.031 908.913 Q740.925 909.446 738.981 910.511 L738.981 906.576 Q741.319 905.673 743.518 905.233 Q745.717 904.77 747.8 904.77 Q753.425 904.77 756.203 907.687 Q758.98 910.603 758.98 916.529 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M771.966 898.034 L771.966 905.395 L780.74 905.395 L780.74 908.705 L771.966 908.705 L771.966 922.779 Q771.966 925.95 772.823 926.853 Q773.703 927.756 776.365 927.756 L780.74 927.756 L780.74 931.321 L776.365 931.321 Q771.434 931.321 769.559 929.492 Q767.684 927.64 767.684 922.779 L767.684 908.705 L764.559 908.705 L764.559 905.395 L767.684 905.395 L767.684 898.034 L771.966 898.034 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M808.517 917.293 L808.517 919.376 L788.934 919.376 Q789.212 923.774 791.573 926.089 Q793.957 928.381 798.193 928.381 Q800.647 928.381 802.939 927.779 Q805.253 927.177 807.522 925.974 L807.522 930.001 Q805.23 930.974 802.823 931.483 Q800.415 931.992 797.939 931.992 Q791.735 931.992 788.101 928.381 Q784.49 924.77 784.49 918.612 Q784.49 912.247 787.915 908.52 Q791.365 904.77 797.198 904.77 Q802.429 904.77 805.462 908.15 Q808.517 911.506 808.517 917.293 M804.258 916.043 Q804.212 912.548 802.29 910.464 Q800.392 908.381 797.244 908.381 Q793.679 908.381 791.527 910.395 Q789.397 912.409 789.073 916.066 L804.258 916.043 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M832.568 909.33 L832.568 895.302 L836.827 895.302 L836.827 931.321 L832.568 931.321 L832.568 927.432 Q831.225 929.747 829.165 930.881 Q827.128 931.992 824.258 931.992 Q819.559 931.992 816.596 928.242 Q813.656 924.492 813.656 918.381 Q813.656 912.27 816.596 908.52 Q819.559 904.77 824.258 904.77 Q827.128 904.77 829.165 905.904 Q831.225 907.015 832.568 909.33 M818.054 918.381 Q818.054 923.08 819.975 925.765 Q821.92 928.427 825.3 928.427 Q828.679 928.427 830.624 925.765 Q832.568 923.08 832.568 918.381 Q832.568 913.682 830.624 911.02 Q828.679 908.335 825.3 908.335 Q821.92 908.335 819.975 911.02 Q818.054 913.682 818.054 918.381 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M870.901 895.349 Q867.799 900.673 866.295 905.881 Q864.79 911.089 864.79 916.437 Q864.79 921.784 866.295 927.038 Q867.822 932.27 870.901 937.571 L867.197 937.571 Q863.725 932.131 861.989 926.876 Q860.276 921.622 860.276 916.437 Q860.276 911.275 861.989 906.043 Q863.702 900.812 867.197 895.349 L870.901 895.349 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M879.165 905.395 L883.424 905.395 L883.424 931.321 L879.165 931.321 L879.165 905.395 M879.165 895.302 L883.424 895.302 L883.424 900.696 L879.165 900.696 L879.165 895.302 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M913.887 915.673 L913.887 931.321 L909.628 931.321 L909.628 915.812 Q909.628 912.131 908.193 910.302 Q906.757 908.474 903.887 908.474 Q900.438 908.474 898.447 910.673 Q896.457 912.872 896.457 916.668 L896.457 931.321 L892.174 931.321 L892.174 905.395 L896.457 905.395 L896.457 909.423 Q897.984 907.085 900.045 905.927 Q902.128 904.77 904.836 904.77 Q909.304 904.77 911.595 907.548 Q913.887 910.302 913.887 915.673 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M926.503 927.432 L926.503 941.182 L922.22 941.182 L922.22 905.395 L926.503 905.395 L926.503 909.33 Q927.845 907.015 929.882 905.904 Q931.942 904.77 934.79 904.77 Q939.512 904.77 942.452 908.52 Q945.415 912.27 945.415 918.381 Q945.415 924.492 942.452 928.242 Q939.512 931.992 934.79 931.992 Q931.942 931.992 929.882 930.881 Q927.845 929.747 926.503 927.432 M940.993 918.381 Q940.993 913.682 939.049 911.02 Q937.128 908.335 933.748 908.335 Q930.368 908.335 928.424 911.02 Q926.503 913.682 926.503 918.381 Q926.503 923.08 928.424 925.765 Q930.368 928.427 933.748 928.427 Q937.128 928.427 939.049 925.765 Q940.993 923.08 940.993 918.381 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M952.035 921.089 L952.035 905.395 L956.294 905.395 L956.294 920.927 Q956.294 924.608 957.729 926.46 Q959.165 928.288 962.035 928.288 Q965.484 928.288 967.475 926.089 Q969.489 923.89 969.489 920.094 L969.489 905.395 L973.748 905.395 L973.748 931.321 L969.489 931.321 L969.489 927.339 Q967.938 929.7 965.877 930.858 Q963.84 931.992 961.132 931.992 Q956.665 931.992 954.35 929.214 Q952.035 926.437 952.035 921.089 M962.753 904.77 L962.753 904.77 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M986.734 898.034 L986.734 905.395 L995.507 905.395 L995.507 908.705 L986.734 908.705 L986.734 922.779 Q986.734 925.95 987.59 926.853 Q988.47 927.756 991.132 927.756 L995.507 927.756 L995.507 931.321 L991.132 931.321 Q986.201 931.321 984.326 929.492 Q982.451 927.64 982.451 922.779 L982.451 908.705 L979.326 908.705 L979.326 905.395 L982.451 905.395 L982.451 898.034 L986.734 898.034 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M1029.3 895.302 L1029.3 898.844 L1025.23 898.844 Q1022.94 898.844 1022.03 899.77 Q1021.15 900.696 1021.15 903.103 L1021.15 905.395 L1028.17 905.395 L1028.17 908.705 L1021.15 908.705 L1021.15 931.321 L1016.87 931.321 L1016.87 908.705 L1012.8 908.705 L1012.8 905.395 L1016.87 905.395 L1016.87 903.589 Q1016.87 899.261 1018.89 897.293 Q1020.9 895.302 1025.28 895.302 L1029.3 895.302 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M1042.91 908.381 Q1039.49 908.381 1037.5 911.066 Q1035.51 913.728 1035.51 918.381 Q1035.51 923.034 1037.47 925.719 Q1039.47 928.381 1042.91 928.381 Q1046.32 928.381 1048.31 925.696 Q1050.3 923.011 1050.3 918.381 Q1050.3 913.775 1048.31 911.089 Q1046.32 908.381 1042.91 908.381 M1042.91 904.77 Q1048.47 904.77 1051.64 908.381 Q1054.81 911.992 1054.81 918.381 Q1054.81 924.747 1051.64 928.381 Q1048.47 931.992 1042.91 931.992 Q1037.34 931.992 1034.16 928.381 Q1031.02 924.747 1031.02 918.381 Q1031.02 911.992 1034.16 908.381 Q1037.34 904.77 1042.91 904.77 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M1076.9 909.376 Q1076.18 908.96 1075.32 908.775 Q1074.49 908.566 1073.47 908.566 Q1069.86 908.566 1067.91 910.927 Q1065.99 913.265 1065.99 917.663 L1065.99 931.321 L1061.71 931.321 L1061.71 905.395 L1065.99 905.395 L1065.99 909.423 Q1067.34 907.062 1069.49 905.927 Q1071.64 904.77 1074.72 904.77 Q1075.16 904.77 1075.69 904.839 Q1076.22 904.886 1076.87 905.001 L1076.9 909.376 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M1098.98 906.39 L1098.98 910.372 Q1097.17 909.376 1095.34 908.89 Q1093.54 908.381 1091.69 908.381 Q1087.54 908.381 1085.25 911.02 Q1082.96 913.636 1082.96 918.381 Q1082.96 923.126 1085.25 925.765 Q1087.54 928.381 1091.69 928.381 Q1093.54 928.381 1095.34 927.895 Q1097.17 927.386 1098.98 926.39 L1098.98 930.325 Q1097.2 931.159 1095.27 931.575 Q1093.38 931.992 1091.22 931.992 Q1085.37 931.992 1081.92 928.312 Q1078.47 924.631 1078.47 918.381 Q1078.47 912.038 1081.94 908.404 Q1085.44 904.77 1091.5 904.77 Q1093.47 904.77 1095.34 905.187 Q1097.22 905.58 1098.98 906.39 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M1128.56 917.293 L1128.56 919.376 L1108.98 919.376 Q1109.26 923.774 1111.62 926.089 Q1114 928.381 1118.24 928.381 Q1120.69 928.381 1122.98 927.779 Q1125.3 927.177 1127.57 925.974 L1127.57 930.001 Q1125.27 930.974 1122.87 931.483 Q1120.46 931.992 1117.98 931.992 Q1111.78 931.992 1108.15 928.381 Q1104.53 924.77 1104.53 918.612 Q1104.53 912.247 1107.96 908.52 Q1111.41 904.77 1117.24 904.77 Q1122.47 904.77 1125.51 908.15 Q1128.56 911.506 1128.56 917.293 M1124.3 916.043 Q1124.26 912.548 1122.33 910.464 Q1120.44 908.381 1117.29 908.381 Q1113.72 908.381 1111.57 910.395 Q1109.44 912.409 1109.12 916.066 L1124.3 916.043 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M1152.03 927.386 L1159.67 927.386 L1159.67 901.02 L1151.36 902.687 L1151.36 898.427 L1159.63 896.761 L1164.3 896.761 L1164.3 927.386 L1171.94 927.386 L1171.94 931.321 L1152.03 931.321 L1152.03 927.386 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /><path clip-path="url(#clip040)" d="M1180.11 895.349 L1183.82 895.349 Q1187.29 900.812 1189 906.043 Q1190.74 911.275 1190.74 916.437 Q1190.74 921.622 1189 926.876 Q1187.29 932.131 1183.82 937.571 L1180.11 937.571 Q1183.19 932.27 1184.7 927.038 Q1186.22 921.784 1186.22 916.437 Q1186.22 911.089 1184.7 905.881 Q1183.19 900.673 1180.11 895.349 Z" fill="#000000" fill-rule="nonzero" fill-opacity="1" /></svg>
-<p>Let&rsquo;s quickly go over these results now:</p>
-<ol>
-<li>State estimation: The <strong>true state</strong> and the <strong>estimated state</strong> show excellent agreement, demonstrating the accuracy of the smoother model implemented via <code>RxInfer</code>. The <strong>uncertainty bounds</strong> around the estimated states are noticeable, especially early in the domain. This reflects the natural uncertainty in state estimation since only <strong>accelerations</strong> are observed, whereas displacements and velocities are inferred through integration.</li>
-<li>Reconstructed response: the <strong>real response</strong> and the <strong>reconstructed response</strong> align well across the domain, confirming that the filter captures the dynamics quite nicely. The uncertainty bounds here are narrower, showing that the confidence improves as the filter incorporates observations of these quantities of interest (i.e. accelerations).</li>
-<li>Input force reconstruction: The <strong>input force</strong> and its <strong>reconstructed counterpart</strong> show significant high frequency variations with very narrow uncertainty bounds. This is expected because accelerations, being the directly observed quantities, are estimated with higher confidence. Plus, we gave ourselves a small advantage by using a well-calibrated prior on this quantity of interest ($Q_p$).</li>
-</ol>
-<p>The results demonstrate how well the smoother model, implemented with RxInfer, performs in capturing the system dynamics and reconstructing hidden states and inputs. Notably, setting up the probabilistic model was straightforward and intuitive—much easier than dealing with the rest of the structural modeling! This highlights the power of RxInfer for quickly building and solving complex inference problems while keeping the implementation clean and efficient.</p>
-<p>With just a few lines of code, we were able to estimate states, reconstruct responses, and confidently quantify uncertainties—a win for both accuracy and usability. 🚀</p>
-]]></content:encoded>
-    </item>
-    
-    <item>
-      <title>Transfer Learning Classifier Again... with Julia!</title>
-      <link>http://localhost:1313/posts/20240521_julia_transfer_learning_v5/20240521_julia_transfer_learning_v5/</link>
-      <pubDate>Tue, 21 May 2024 22:38:29 +0800</pubDate>
-      
-      <guid>http://localhost:1313/posts/20240521_julia_transfer_learning_v5/20240521_julia_transfer_learning_v5/</guid>
-      <description>Replicating the cat mood classifier, this time using Julia and Flux.jl.</description>
-      <content:encoded><![CDATA[<hr>
-<p><img loading="lazy" src="/images/20240521_julia_transfer_learning_v5/intro.png" type="" alt="image"  /></p>
-<h2 id="introduction">Introduction</h2>
-<p>This guide demonstrates how to apply transfer learning using a pre-trained vision model to classify cat moods based on their facila expressions. We&rsquo;ll learn how to handle custom data setups.</p>
-<p>In this demonstration, we recreate the exercise done in PyTorch, <a href="https://vflores-io.github.io/posts/20240515_cat_mood_classification/">available here</a>. Since that demonstration is quite detailed, we keep it pretty straightforward here.</p>
-<h4 id="motivation--credit">Motivation &amp; Credit</h4>
-<p>When I thought about learning how to implement a computer vision classification model for transfer learning in Julia and <code>Flux</code>, I immediately came upon two roadblocks:</p>
-<ol>
-<li>Since I am not an expert in Julia, I found the documentation to be a bit difficult to access (again, this is just me!).</li>
-<li>There are not many tutorials or resources to illustrate this particular case.</li>
-</ol>
-<p>Therefore I took it upon myself to put things together and make a demonstration that would hopefully be useful for someone who might not be an expert in Flux (or Julia).</p>
-<p>This particular demo was inspired by a combination of the following resources:</p>
-<ul>
-<li><a href="https://towardsdatascience.com/transfer-learning-and-twin-network-for-image-classification-using-flux-jl-cbe012ced146">Transfer Learning and Twin Network for Image Classification using <code>Flux.jl</code></a></li>
-<li><a href="https://github.com/FluxML/model-zoo/tree/master/tutorials/transfer_learning"><code>Flux.jl</code>&rsquo;s Model Zoo Tutorial</a></li>
-<li><a href="https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html"><code>PyTorch</code> Transfer Learning for Computer Vision Tutorial</a></li>
-</ul>
-<h2 id="getting-started">Getting Started</h2>
-<p>We will use a pre-trained <code>ResNet18</code> model, initially trained on a general dataset, and fine-tune it for our specific task of classifying cat moods.</p>
-<h3 id="initialization">Initialization</h3>
-<p>First, we activate the current directory as our project environment by calling the package manager <code>Pkg</code>:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Pkg</span>
-</span></span><span class="line"><span class="cl"><span class="n">Pkg</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="s">&#34;.&#34;</span><span class="p">)</span> 
-</span></span></code></pre></div><p>Then we will import the required packages. Of course, this is also assuming that one has already added the relevant packages into the environment.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Pkg</span>
-</span></span><span class="line"><span class="cl"><span class="n">Pkg</span><span class="o">.</span><span class="n">activate</span><span class="p">(</span><span class="s">&#34;.&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Random</span><span class="o">:</span> <span class="n">shuffle!</span>
-</span></span><span class="line"><span class="cl"><span class="k">import</span> <span class="n">Base</span><span class="o">:</span> <span class="n">length</span><span class="p">,</span> <span class="n">getindex</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Images</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Flux</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Flux</span><span class="o">:</span> <span class="n">update!</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">DataAugmentation</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Metalhead</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">MLUtils</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">DataFrames</span><span class="p">,</span> <span class="n">CSV</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Plots</span>
-</span></span></code></pre></div><pre><code>[32m[1m  Activating[22m[39m project at `H:\My Drive\Projects\Coding\Portfolio\Machine Learning\Julia\Transfer Learning with Flux`
-</code></pre>
-<h3 id="retrieve-the-data-and-initial-setup">Retrieve the Data and Initial Setup</h3>
-<p>First, we specify the paths to the dataset and labels CSV files for training, validation, and test sets. Then, we load these CSV files into <code>DataFrames</code>. Finally, we create vectors of absolute file paths for each image in the dataset.</p>
-<p>This setup is essential for organizing the data and ensuring that our model can access the correct images and labels during training and evaluation.</p>
-<h4 id="label-structure">Label Structure</h4>
-<p>The data set we are using consists of three folders: <code>train</code>, <code>val</code>, <code>test</code>. Each of them contain a set of images of cats. The labels in this case, are in the form of a CSV file that maps the filename with a one-hot encoding to label the classification of the image, i.e. the cat&rsquo;s mood - alarmed, angry, calm, pleased.</p>
-<p>The dataset was obtained <a href="https://universe.roboflow.com/mubbarryz/domestic-cats-facial-expressions">here</a>.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># specify the paths to the dataset and labels CSV</span>
-</span></span><span class="line"><span class="cl"><span class="n">train_data_path</span> <span class="o">=</span> <span class="s">&#34;data/cat_expression_data/train&#34;</span>
-</span></span><span class="line"><span class="cl"><span class="n">train_data_csv</span> <span class="o">=</span> <span class="s">&#34;data/cat_expression_data/train/_classes.csv&#34;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">val_data_path</span> <span class="o">=</span> <span class="s">&#34;data/cat_expression_data/val&#34;</span>
-</span></span><span class="line"><span class="cl"><span class="n">val_data_csv</span> <span class="o">=</span> <span class="s">&#34;data/cat_expression_data/val/_classes.csv&#34;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">test_data_path</span> <span class="o">=</span> <span class="s">&#34;data/cat_expression_data/test&#34;</span>
-</span></span><span class="line"><span class="cl"><span class="n">test_data_csv</span> <span class="o">=</span> <span class="s">&#34;data/cat_expression_data/test/_classes.csv&#34;</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># load the CSV file containing the labels</span>
-</span></span><span class="line"><span class="cl"><span class="n">train_labels_df</span> <span class="o">=</span> <span class="n">CSV</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">train_data_csv</span><span class="p">,</span> <span class="n">DataFrame</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">test_labels_df</span> <span class="o">=</span> <span class="n">CSV</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">test_data_csv</span><span class="p">,</span> <span class="n">DataFrame</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">val_labels_df</span> <span class="o">=</span> <span class="n">CSV</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">val_data_csv</span><span class="p">,</span> <span class="n">DataFrame</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># setup filepaths to the files as vectors</span>
-</span></span><span class="line"><span class="cl"><span class="n">train_filepaths</span> <span class="o">=</span> <span class="p">[</span><span class="n">abspath</span><span class="p">(</span><span class="n">joinpath</span><span class="p">(</span><span class="n">train_data_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">))</span> <span class="k">for</span> <span class="n">filename</span> <span class="k">in</span> <span class="n">train_labels_df</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="n">test_filepaths</span> <span class="o">=</span> <span class="p">[</span><span class="n">abspath</span><span class="p">(</span><span class="n">joinpath</span><span class="p">(</span><span class="n">test_data_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">))</span> <span class="k">for</span> <span class="n">filename</span> <span class="k">in</span> <span class="n">test_labels_df</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="n">val_filepaths</span> <span class="o">=</span> <span class="p">[</span><span class="n">abspath</span><span class="p">(</span><span class="n">joinpath</span><span class="p">(</span><span class="n">val_data_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">))</span> <span class="k">for</span> <span class="n">filename</span> <span class="k">in</span> <span class="n">val_labels_df</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="p">]</span>
-</span></span></code></pre></div><pre><code>110-element Vector{String}:
- 
- ⋮
-</code></pre>
-<h3 id="data-exploration">Data Exploration</h3>
-<p>As usual, we take a look at the data to understand what we are working with.</p>
-<p>Below we make a couple of functions to visualize the data.</p>
-<p>Note that the helper function <code>label_from_row</code> will come in handy later on.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># -----------------------------------------------------------------------#</span>
-</span></span><span class="line"><span class="cl"><span class="c"># helper function to extract label from the DataFrame</span>
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">label_from_row</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">labels_df</span><span class="p">,</span> <span class="n">label_dict</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c"># retrieve the label for the image from the DataFrame</span>
-</span></span><span class="line"><span class="cl">    <span class="n">label_row</span> <span class="o">=</span> <span class="n">filter</span><span class="p">(</span><span class="n">row</span> <span class="o">-&gt;</span> <span class="n">row</span><span class="o">.</span><span class="n">filename</span> <span class="o">==</span> <span class="n">filename</span><span class="p">,</span> <span class="n">labels_df</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">label_index</span> <span class="o">=</span> <span class="n">findfirst</span><span class="p">(</span><span class="n">x</span> <span class="o">-&gt;</span> <span class="n">label_row</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">,</span> <span class="n">names</span><span class="p">(</span><span class="n">labels_df</span><span class="p">)[</span><span class="mi">2</span><span class="o">:</span><span class="k">end</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">label_dict</span><span class="p">[</span><span class="n">label_index</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl"><span class="c"># -----------------------------------------------------------------------#</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># function to display a selection of images and their labels</span>
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">show_sample_images_and_labels</span><span class="p">(</span><span class="n">labels_df</span><span class="p">,</span> <span class="n">label_dict</span><span class="p">;</span> <span class="n">num_samples</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="c"># randomly pick indices for sampling images</span>
-</span></span><span class="line"><span class="cl">    <span class="n">sample_indices</span> <span class="o">=</span> <span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="o">:</span><span class="n">nrow</span><span class="p">(</span><span class="n">labels_df</span><span class="p">),</span> <span class="n">num_samples</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">sample_filenames</span> <span class="o">=</span> <span class="n">labels_df</span><span class="o">.</span><span class="n">filename</span><span class="p">[</span><span class="n">sample_indices</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># calculate number of rows and columns for the grid layuot</span>
-</span></span><span class="line"><span class="cl">    <span class="n">num_cols</span> <span class="o">=</span> <span class="n">ceil</span><span class="p">(</span><span class="kt">Int</span><span class="p">,</span> <span class="n">num_samples</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">num_rows</span> <span class="o">=</span> <span class="mi">2</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="c"># prepare a plot with a grid layout for the images</span>
-</span></span><span class="line"><span class="cl">    <span class="n">p</span> <span class="o">=</span> <span class="n">plot</span><span class="p">(</span><span class="n">layout</span> <span class="o">=</span> <span class="p">(</span><span class="n">num_rows</span><span class="p">,</span> <span class="n">num_cols</span><span class="p">),</span> <span class="n">size</span><span class="p">(</span><span class="mi">800</span><span class="p">,</span> <span class="mi">200</span><span class="p">),</span> <span class="n">legend</span> <span class="o">=</span> <span class="nb">false</span><span class="p">,</span> <span class="n">axis</span> <span class="o">=</span> <span class="nb">false</span><span class="p">,</span> <span class="n">grid</span> <span class="o">=</span> <span class="nb">false</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="c"># load and plot each sampled image</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span> <span class="k">in</span> <span class="n">enumerate</span><span class="p">(</span><span class="n">sample_filenames</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">img_path</span> <span class="o">=</span> <span class="n">joinpath</span><span class="p">(</span><span class="n">train_data_path</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">img</span> <span class="o">=</span> <span class="n">load</span><span class="p">(</span><span class="n">img_path</span><span class="p">)</span>   <span class="c"># load the image from the file</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="c"># retrieve the label for the image from the DataFrame</span>
-</span></span><span class="line"><span class="cl">        <span class="n">label</span> <span class="o">=</span> <span class="n">label_from_row</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">labels_df</span><span class="p">,</span> <span class="n">label_dict</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="n">plot!</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="n">img</span><span class="p">,</span> <span class="n">title</span> <span class="o">=</span> <span class="n">label</span><span class="p">,</span> <span class="n">axis</span> <span class="o">=</span> <span class="nb">false</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">    <span class="n">display</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>   <span class="c"># display the plot</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># define a dictionary for label descriptions:</span>
-</span></span><span class="line"><span class="cl"><span class="n">label_dict</span> <span class="o">=</span> <span class="kt">Dict</span><span class="p">(</span><span class="mi">1</span> <span class="o">=&gt;</span> <span class="s">&#34;alarmed&#34;</span><span class="p">,</span> <span class="mi">2</span> <span class="o">=&gt;</span> <span class="s">&#34;angry&#34;</span><span class="p">,</span> <span class="mi">3</span> <span class="o">=&gt;</span> <span class="s">&#34;calm&#34;</span><span class="p">,</span> <span class="mi">4</span> <span class="o">=&gt;</span> <span class="s">&#34;pleased&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># run the function to show images</span>
-</span></span><span class="line"><span class="cl"><span class="n">show_sample_images_and_labels</span><span class="p">(</span><span class="n">train_labels_df</span><span class="p">,</span> <span class="n">label_dict</span><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240521_julia_transfer_learning_v5/output_6_0.svg" type="" alt="svg"  /></p>
-<h3 id="working-with-custom-datasets">Working with Custom Datasets</h3>
-<p>When working with custom datasets in Julia, the concepts are similar as in PyTorch, but obviously following Julia&rsquo;s syntax.</p>
-<p>In essence, we read the CSV files containing image file paths and their corresponding labels into DataFrames. We then create functions to handle data loading and transformations, such as resizing and normalizing images. This approach is similar to PyTorch&rsquo;s <code>Dataset</code>.</p>
-<p>Let&rsquo;s have a quick look.</p>
-<h3 id="create-a-custom-dataset">Create a Custom Dataset</h3>
-<p>We define a custom dataset using a <code>struct</code>, which is similar to using a <code>class</code> in Python. The <code>ImageContainer</code> struct stores the image file paths and their corresponding labels in a DataFrame. We then create instances of this <code>struct</code> for the training, validation, and test datasets.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">struct</span> <span class="kt">ImageContainer</span><span class="p">{</span><span class="kt">T</span><span class="o">&lt;:</span><span class="kt">Vector</span><span class="p">}</span>
-</span></span><span class="line"><span class="cl">    <span class="n">img</span><span class="o">::</span><span class="kt">T</span>
-</span></span><span class="line"><span class="cl">    <span class="n">labels_df</span><span class="o">::</span><span class="kt">DataFrame</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># generate dataset</span>
-</span></span><span class="line"><span class="cl"><span class="n">train_dataset</span> <span class="o">=</span> <span class="n">ImageContainer</span><span class="p">(</span><span class="n">train_filepaths</span><span class="p">,</span> <span class="n">train_labels_df</span><span class="p">);</span>   
-</span></span><span class="line"><span class="cl"><span class="n">val_dataset</span> <span class="o">=</span> <span class="n">ImageContainer</span><span class="p">(</span><span class="n">val_filepaths</span><span class="p">,</span> <span class="n">val_labels_df</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="n">test_dataset</span> <span class="o">=</span> <span class="n">ImageContainer</span><span class="p">(</span><span class="n">test_filepaths</span><span class="p">,</span> <span class="n">test_labels_df</span><span class="p">);</span>
-</span></span></code></pre></div><h4 id="create-the-data-loaders">Create the Data Loaders</h4>
-<p>In this section, we set up data loaders for our custom dataset in Julia, similar to how data loaders are used in PyTorch to manage batching and shuffling of data.</p>
-<ol>
-<li>
-<p>Call helper Function: <code>label_from_row()</code> : This function extracts the label from the DataFrame for a given image file. It finds the index of the column with a value of 1, indicating the class.</p>
-</li>
-<li>
-<p>Length and Indexing:</p>
-</li>
-</ol>
-<ul>
-<li><code>length(data::ImageContainer)</code>: Defines the length method to return the number of images in the dataset. Similar to PyTorch&rsquo;s <code>__len__</code>.</li>
-<li><code>getindex(data::ImageContainer, idx::Int)</code>: This method is similar to PyTorch’s <code>__getitem__</code>. It loads an image, applies transformations, and returns the processed image along with its label.</li>
-</ul>
-<ol start="3">
-<li>Data Augmentation and Transformations:</li>
-</ol>
-<ul>
-<li>pipeline: Defines a transformation pipeline for scaling and cropping images.</li>
-<li>transforms(image, labels_df): Inside getindex, this function applies the transformations to the image and normalizes it using the predefined mean and standard deviation values.</li>
-</ul>
-<ol start="4">
-<li>DataLoaders:</li>
-</ol>
-<ul>
-<li><code>train_loader</code> and <code>val_loader</code>: These DataLoader objects manage batching, shuffling, and parallel processing of the training and validation datasets, similar to <code>torch.utils.data.DataLoader</code> in PyTorch</li>
-</ul>
-<h5 id="notes-on-implementing-custom-data-containers">Notes on Implementing Custom Data Containers</h5>
-<p>According to the documentation for MLUtils.DataLoader (<a href="https://fluxml.ai/Flux.jl/stable/data/mlutils/">see here</a>), custom data containers should implement Base.length instead of  <code>numobs</code>, and Base.getindex instead of <code>getobs</code>, unless there&rsquo;s a difference between these functions and the base methods for multi-dimensional arrays.</p>
-<p>Base.length: Should be implemented to return the number of observations. This is akin to PyTorch&rsquo;s <code>__len__</code>.
-Base.getindex: Should be implemented to handle indexing of the dataset, similar to PyTorch&rsquo;s <code>__getitem__</code>.
-These methods ensure that the data is returned in a form suitable for the learning algorithm, maintaining consistency whether the index is a scalar or vector.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">length</span><span class="p">(</span><span class="n">data</span><span class="o">::</span><span class="kt">ImageContainer</span><span class="p">)</span> <span class="o">=</span> <span class="n">length</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">img</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="n">im_size</span> <span class="o">=</span> <span class="p">(</span><span class="mi">224</span><span class="p">,</span> <span class="mi">224</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="n">DATA_MEAN</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.485f0</span><span class="p">,</span> <span class="mf">0.456f0</span><span class="p">,</span> <span class="mf">0.406f0</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="n">DATA_STD</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.229f0</span><span class="p">,</span> <span class="mf">0.224f0</span><span class="p">,</span> <span class="mf">0.225f0</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># define a transformation pipeline</span>
-</span></span><span class="line"><span class="cl"><span class="n">pipeline</span> <span class="o">=</span> <span class="n">DataAugmentation</span><span class="o">.</span><span class="n">compose</span><span class="p">(</span><span class="n">ScaleKeepAspect</span><span class="p">(</span><span class="n">im_size</span><span class="p">),</span> <span class="n">CenterCrop</span><span class="p">(</span><span class="n">im_size</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">getindex</span><span class="p">(</span><span class="n">data</span><span class="o">::</span><span class="kt">ImageContainer</span><span class="p">,</span> <span class="n">idx</span><span class="o">::</span><span class="kt">Int</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">image</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">img</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">    <span class="n">labels_df</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">labels_df</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="k">function</span> <span class="n">transforms</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">labels_df</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">pipeline</span> <span class="o">=</span> <span class="n">ScaleKeepAspect</span><span class="p">(</span><span class="n">im_size</span><span class="p">)</span> <span class="o">|&gt;</span> <span class="n">CenterCrop</span><span class="p">(</span><span class="n">im_size</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">_img</span> <span class="o">=</span> <span class="n">Images</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">_img</span> <span class="o">=</span> <span class="n">apply</span><span class="p">(</span><span class="n">pipeline</span><span class="p">,</span> <span class="n">Image</span><span class="p">(</span><span class="n">_img</span><span class="p">))</span> <span class="o">|&gt;</span> <span class="n">itemdata</span>
-</span></span><span class="line"><span class="cl">        <span class="n">img</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">channelview</span><span class="p">(</span><span class="n">float32</span><span class="o">.</span><span class="p">(</span><span class="n">RGB</span><span class="o">.</span><span class="p">(</span><span class="n">_img</span><span class="p">))))</span>
-</span></span><span class="line"><span class="cl">        <span class="n">img</span> <span class="o">=</span> <span class="n">permutedims</span><span class="p">((</span><span class="n">img</span> <span class="o">.-</span> <span class="n">DATA_MEAN</span><span class="p">)</span> <span class="o">./</span> <span class="n">DATA_STD</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">        <span class="n">label</span> <span class="o">=</span> <span class="n">label_from_row</span><span class="p">(</span><span class="n">labels_df</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="p">,</span> <span class="n">labels_df</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">img</span><span class="p">,</span> <span class="n">label</span>
-</span></span><span class="line"><span class="cl">    <span class="k">end</span>
-</span></span><span class="line"><span class="cl">    
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">transforms</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">labels_df</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">train_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">train_dataset</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">collate</span> <span class="o">=</span> <span class="nb">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">parallel</span> <span class="o">=</span> <span class="nb">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">val_loader</span> <span class="o">=</span> <span class="n">DataLoader</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">val_dataset</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl">    <span class="n">batchsize</span> <span class="o">=</span> <span class="mi">16</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">collate</span> <span class="o">=</span> <span class="nb">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">parallel</span> <span class="o">=</span> <span class="nb">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="p">);</span>
-</span></span></code></pre></div><h2 id="model-definition">Model Definition</h2>
-<p>Here we will load the model with <code>Metalhead.jl</code> and change the classifier &ldquo;head&rdquo; of the architecture to suit our classification need.</p>
-<p>We will use this to select the classifier head of the model and change it.</p>
-<p>For the fine-tuning portion of this exercise will follow the <a href="https://github.com/FluxML/model-zoo/tree/master/tutorials%2Ftransfer_learning">model zoo documentation</a>:</p>
-<hr>
-<p><img loading="lazy" src="/images/20240521_julia_transfer_learning_v5/109ebfef-0cea-49b5-98d5-fcd19f0f9596.png" type="" alt="image.png"  /></p>
-<hr>
-<p>Let&rsquo;s try it out with the <code>ResNet18</code> model.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># load the pre-trained model</span>
-</span></span><span class="line"><span class="cl"><span class="n">resnet_model</span> <span class="o">=</span> <span class="n">ResNet</span><span class="p">(</span><span class="mi">18</span><span class="p">;</span> <span class="n">pretrain</span> <span class="o">=</span> <span class="nb">true</span><span class="p">)</span><span class="o">.</span><span class="n">layers</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># let&#39;s look at the model</span>
-</span></span><span class="line"><span class="cl"><span class="n">resnet_model</span>
-</span></span></code></pre></div><pre><code>Chain(
-  Chain(
-    Chain(
-      Conv((7, 7), 3 =&gt; 64, pad=3, stride=2, bias=false),  [90m# 9_408 parameters[39m
-      BatchNorm(64, relu),              [90m# 128 parameters[39m[90m, plus 128[39m
-      MaxPool((3, 3), pad=1, stride=2),
-    ),
-    Chain(
-      Parallel(
-        addact(NNlib.relu, ...),
-        identity,
-        Chain(
-          Conv((3, 3), 64 =&gt; 64, pad=1, bias=false),  [90m# 36_864 parameters[39m
-          BatchNorm(64),                [90m# 128 parameters[39m[90m, plus 128[39m
-          NNlib.relu,
-          Conv((3, 3), 64 =&gt; 64, pad=1, bias=false),  [90m# 36_864 parameters[39m
-          BatchNorm(64),                [90m# 128 parameters[39m[90m, plus 128[39m
-        ),
-      ),
-      Parallel(
-        addact(NNlib.relu, ...),
-        identity,
-        Chain(
-          Conv((3, 3), 64 =&gt; 64, pad=1, bias=false),  [90m# 36_864 parameters[39m
-          BatchNorm(64),                [90m# 128 parameters[39m[90m, plus 128[39m
-          NNlib.relu,
-          Conv((3, 3), 64 =&gt; 64, pad=1, bias=false),  [90m# 36_864 parameters[39m
-          BatchNorm(64),                [90m# 128 parameters[39m[90m, plus 128[39m
-        ),
-      ),
-    ),
-    Chain(
-      Parallel(
-        addact(NNlib.relu, ...),
-        Chain(
-          Conv((1, 1), 64 =&gt; 128, stride=2, bias=false),  [90m# 8_192 parameters[39m
-          BatchNorm(128),               [90m# 256 parameters[39m[90m, plus 256[39m
-        ),
-        Chain(
-          Conv((3, 3), 64 =&gt; 128, pad=1, stride=2, bias=false),  [90m# 73_728 parameters[39m
-          BatchNorm(128),               [90m# 256 parameters[39m[90m, plus 256[39m
-          NNlib.relu,
-          Conv((3, 3), 128 =&gt; 128, pad=1, bias=false),  [90m# 147_456 parameters[39m
-          BatchNorm(128),               [90m# 256 parameters[39m[90m, plus 256[39m
-        ),
-      ),
-      Parallel(
-        addact(NNlib.relu, ...),
-        identity,
-        Chain(
-          Conv((3, 3), 128 =&gt; 128, pad=1, bias=false),  [90m# 147_456 parameters[39m
-          BatchNorm(128),               [90m# 256 parameters[39m[90m, plus 256[39m
-          NNlib.relu,
-          Conv((3, 3), 128 =&gt; 128, pad=1, bias=false),  [90m# 147_456 parameters[39m
-          BatchNorm(128),               [90m# 256 parameters[39m[90m, plus 256[39m
-        ),
-      ),
-    ),
-    Chain(
-      Parallel(
-        addact(NNlib.relu, ...),
-        Chain(
-          Conv((1, 1), 128 =&gt; 256, stride=2, bias=false),  [90m# 32_768 parameters[39m
-          BatchNorm(256),               [90m# 512 parameters[39m[90m, plus 512[39m
-        ),
-        Chain(
-          Conv((3, 3), 128 =&gt; 256, pad=1, stride=2, bias=false),  [90m# 294_912 parameters[39m
-          BatchNorm(256),               [90m# 512 parameters[39m[90m, plus 512[39m
-          NNlib.relu,
-          Conv((3, 3), 256 =&gt; 256, pad=1, bias=false),  [90m# 589_824 parameters[39m
-          BatchNorm(256),               [90m# 512 parameters[39m[90m, plus 512[39m
-        ),
-      ),
-      Parallel(
-        addact(NNlib.relu, ...),
-        identity,
-        Chain(
-          Conv((3, 3), 256 =&gt; 256, pad=1, bias=false),  [90m# 589_824 parameters[39m
-          BatchNorm(256),               [90m# 512 parameters[39m[90m, plus 512[39m
-          NNlib.relu,
-          Conv((3, 3), 256 =&gt; 256, pad=1, bias=false),  [90m# 589_824 parameters[39m
-          BatchNorm(256),               [90m# 512 parameters[39m[90m, plus 512[39m
-        ),
-      ),
-    ),
-    Chain(
-      Parallel(
-        addact(NNlib.relu, ...),
-        Chain(
-          Conv((1, 1), 256 =&gt; 512, stride=2, bias=false),  [90m# 131_072 parameters[39m
-          BatchNorm(512),               [90m# 1_024 parameters[39m[90m, plus 1_024[39m
-        ),
-        Chain(
-          Conv((3, 3), 256 =&gt; 512, pad=1, stride=2, bias=false),  [90m# 1_179_648 parameters[39m
-          BatchNorm(512),               [90m# 1_024 parameters[39m[90m, plus 1_024[39m
-          NNlib.relu,
-          Conv((3, 3), 512 =&gt; 512, pad=1, bias=false),  [90m# 2_359_296 parameters[39m
-          BatchNorm(512),               [90m# 1_024 parameters[39m[90m, plus 1_024[39m
-        ),
-      ),
-      Parallel(
-        addact(NNlib.relu, ...),
-        identity,
-        Chain(
-          Conv((3, 3), 512 =&gt; 512, pad=1, bias=false),  [90m# 2_359_296 parameters[39m
-          BatchNorm(512),               [90m# 1_024 parameters[39m[90m, plus 1_024[39m
-          NNlib.relu,
-          Conv((3, 3), 512 =&gt; 512, pad=1, bias=false),  [90m# 2_359_296 parameters[39m
-          BatchNorm(512),               [90m# 1_024 parameters[39m[90m, plus 1_024[39m
-        ),
-      ),
-    ),
-  ),
-  Chain(
-    AdaptiveMeanPool((1, 1)),
-    MLUtils.flatten,
-    Dense(512 =&gt; 1000),                 [90m# 513_000 parameters[39m
-  ),
-) [90m        # Total: 62 trainable arrays, [39m11_689_512 parameters,
-[90m          # plus 40 non-trainable, 9_600 parameters, summarysize [39m44.654 MiB.
-</code></pre>
-<p>Now we modify the head, by chaning the last <code>Chain</code> in the model. We change the last layer to output 4 classes (as opposed to the original 1000 classes).</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># modify the model</span>
-</span></span><span class="line"><span class="cl"><span class="n">resnet_infer</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">resnet_model</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl"><span class="n">resnet_tune</span> <span class="o">=</span> <span class="n">Chain</span><span class="p">(</span><span class="n">AdaptiveMeanPool</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">Flux</span><span class="o">.</span><span class="n">flatten</span><span class="p">,</span> <span class="n">Dense</span><span class="p">(</span><span class="mi">512</span> <span class="o">=&gt;</span> <span class="mi">4</span><span class="p">))</span>
-</span></span></code></pre></div><pre><code>Chain(
-  AdaptiveMeanPool((1, 1)),
-  Flux.flatten,
-  Dense(512 =&gt; 4),                      [90m# 2_052 parameters[39m
-) 
-</code></pre>
-<p><strong>And that&rsquo;s it!</strong> Now, let&rsquo;s just explore both portions of the model.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">resnet_infer</span>
-</span></span></code></pre></div><pre><code>Chain(
-  Chain(
-    Conv((7, 7), 3 =&gt; 64, pad=3, stride=2, bias=false),  [90m# 9_408 parameters[39m
-    BatchNorm(64, relu),                [90m# 128 parameters[39m[90m, plus 128[39m
-    MaxPool((3, 3), pad=1, stride=2),
-  ),
-  Chain(
-    Parallel(
-      addact(NNlib.relu, ...),
-      identity,
-      Chain(
-        Conv((3, 3), 64 =&gt; 64, pad=1, bias=false),  [90m# 36_864 parameters[39m
-        BatchNorm(64),                  [90m# 128 parameters[39m[90m, plus 128[39m
-        NNlib.relu,
-        Conv((3, 3), 64 =&gt; 64, pad=1, bias=false),  [90m# 36_864 parameters[39m
-        BatchNorm(64),                  [90m# 128 parameters[39m[90m, plus 128[39m
-      ),
-    ),
-    Parallel(
-      addact(NNlib.relu, ...),
-      identity,
-      Chain(
-        Conv((3, 3), 64 =&gt; 64, pad=1, bias=false),  [90m# 36_864 parameters[39m
-        BatchNorm(64),                  [90m# 128 parameters[39m[90m, plus 128[39m
-        NNlib.relu,
-        Conv((3, 3), 64 =&gt; 64, pad=1, bias=false),  [90m# 36_864 parameters[39m
-        BatchNorm(64),                  [90m# 128 parameters[39m[90m, plus 128[39m
-      ),
-    ),
-  ),
-  Chain(
-    Parallel(
-      addact(NNlib.relu, ...),
-      Chain(
-        Conv((1, 1), 64 =&gt; 128, stride=2, bias=false),  [90m# 8_192 parameters[39m
-        BatchNorm(128),                 [90m# 256 parameters[39m[90m, plus 256[39m
-      ),
-      Chain(
-        Conv((3, 3), 64 =&gt; 128, pad=1, stride=2, bias=false),  [90m# 73_728 parameters[39m
-        BatchNorm(128),                 [90m# 256 parameters[39m[90m, plus 256[39m
-        NNlib.relu,
-        Conv((3, 3), 128 =&gt; 128, pad=1, bias=false),  [90m# 147_456 parameters[39m
-        BatchNorm(128),                 [90m# 256 parameters[39m[90m, plus 256[39m
-      ),
-    ),
-    Parallel(
-      addact(NNlib.relu, ...),
-      identity,
-      Chain(
-        Conv((3, 3), 128 =&gt; 128, pad=1, bias=false),  [90m# 147_456 parameters[39m
-        BatchNorm(128),                 [90m# 256 parameters[39m[90m, plus 256[39m
-        NNlib.relu,
-        Conv((3, 3), 128 =&gt; 128, pad=1, bias=false),  [90m# 147_456 parameters[39m
-        BatchNorm(128),                 [90m# 256 parameters[39m[90m, plus 256[39m
-      ),
-    ),
-  ),
-  Chain(
-    Parallel(
-      addact(NNlib.relu, ...),
-      Chain(
-        Conv((1, 1), 128 =&gt; 256, stride=2, bias=false),  [90m# 32_768 parameters[39m
-        BatchNorm(256),                 [90m# 512 parameters[39m[90m, plus 512[39m
-      ),
-      Chain(
-        Conv((3, 3), 128 =&gt; 256, pad=1, stride=2, bias=false),  [90m# 294_912 parameters[39m
-        BatchNorm(256),                 [90m# 512 parameters[39m[90m, plus 512[39m
-        NNlib.relu,
-        Conv((3, 3), 256 =&gt; 256, pad=1, bias=false),  [90m# 589_824 parameters[39m
-        BatchNorm(256),                 [90m# 512 parameters[39m[90m, plus 512[39m
-      ),
-    ),
-    Parallel(
-      addact(NNlib.relu, ...),
-      identity,
-      Chain(
-        Conv((3, 3), 256 =&gt; 256, pad=1, bias=false),  [90m# 589_824 parameters[39m
-        BatchNorm(256),                 [90m# 512 parameters[39m[90m, plus 512[39m
-        NNlib.relu,
-        Conv((3, 3), 256 =&gt; 256, pad=1, bias=false),  [90m# 589_824 parameters[39m
-        BatchNorm(256),                 [90m# 512 parameters[39m[90m, plus 512[39m
-      ),
-    ),
-  ),
-  Chain(
-    Parallel(
-      addact(NNlib.relu, ...),
-      Chain(
-        Conv((1, 1), 256 =&gt; 512, stride=2, bias=false),  [90m# 131_072 parameters[39m
-        BatchNorm(512),                 [90m# 1_024 parameters[39m[90m, plus 1_024[39m
-      ),
-      Chain(
-        Conv((3, 3), 256 =&gt; 512, pad=1, stride=2, bias=false),  [90m# 1_179_648 parameters[39m
-        BatchNorm(512),                 [90m# 1_024 parameters[39m[90m, plus 1_024[39m
-        NNlib.relu,
-        Conv((3, 3), 512 =&gt; 512, pad=1, bias=false),  [90m# 2_359_296 parameters[39m
-        BatchNorm(512),                 [90m# 1_024 parameters[39m[90m, plus 1_024[39m
-      ),
-    ),
-    Parallel(
-      addact(NNlib.relu, ...),
-      identity,
-      Chain(
-        Conv((3, 3), 512 =&gt; 512, pad=1, bias=false),  [90m# 2_359_296 parameters[39m
-        BatchNorm(512),                 [90m# 1_024 parameters[39m[90m, plus 1_024[39m
-        NNlib.relu,
-        Conv((3, 3), 512 =&gt; 512, pad=1, bias=false),  [90m# 2_359_296 parameters[39m
-        BatchNorm(512),                 [90m# 1_024 parameters[39m[90m, plus 1_024[39m
-      ),
-    ),
-  ),
-) [90m        # Total: 60 trainable arrays, [39m11_176_512 parameters,
-[90m          # plus 40 non-trainable, 9_600 parameters, summarysize [39m42.693 MiB.
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">resnet_tune</span>
-</span></span></code></pre></div><pre><code>Chain(
-  AdaptiveMeanPool((1, 1)),
-  Flux.flatten,
-  Dense(512 =&gt; 4),                      [90m# 2_052 parameters[39m
-) 
-</code></pre>
-<h3 id="define-evaluation-and-training-functions">Define evaluation and training functions</h3>
-<p>Again, will follow the model zoo documentation. Small adaptations will be needed. (These two functions were taken directly from the documentation).</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">function</span> <span class="n">eval_f</span><span class="p">(</span><span class="n">m_infer</span><span class="p">,</span> <span class="n">m_tune</span><span class="p">,</span> <span class="n">val_loader</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">good</span> <span class="o">=</span> <span class="mi">0</span>
-</span></span><span class="line"><span class="cl">    <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="k">in</span> <span class="n">val_loader</span>
-</span></span><span class="line"><span class="cl">        <span class="n">good</span> <span class="o">+=</span> <span class="n">sum</span><span class="p">(</span><span class="n">Flux</span><span class="o">.</span><span class="n">onecold</span><span class="p">(</span><span class="n">m_tune</span><span class="p">(</span><span class="n">m_infer</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span> <span class="o">.==</span> <span class="n">y</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">count</span> <span class="o">+=</span> <span class="n">length</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">end</span>
-</span></span><span class="line"><span class="cl">    <span class="n">acc</span> <span class="o">=</span> <span class="n">round</span><span class="p">(</span><span class="n">good</span> <span class="o">/</span> <span class="n">count</span><span class="p">,</span> <span class="n">digits</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">acc</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>eval_f (generic function with 1 method)
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">function</span> <span class="n">train_epoch!</span><span class="p">(</span><span class="n">model_infer</span><span class="p">,</span> <span class="n">model_tune</span><span class="p">,</span> <span class="n">opt</span><span class="p">,</span> <span class="n">loader</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="k">in</span> <span class="n">loader</span>
-</span></span><span class="line"><span class="cl">        <span class="n">infer</span> <span class="o">=</span> <span class="n">model_infer</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="n">grads</span> <span class="o">=</span> <span class="n">gradient</span><span class="p">(</span><span class="n">model_tune</span><span class="p">)</span> <span class="k">do</span> <span class="n">m</span>
-</span></span><span class="line"><span class="cl">            <span class="n">Flux</span><span class="o">.</span><span class="n">Losses</span><span class="o">.</span><span class="n">logitcrossentropy</span><span class="p">(</span><span class="n">m</span><span class="p">(</span><span class="n">infer</span><span class="p">),</span> <span class="n">Flux</span><span class="o">.</span><span class="n">onehotbatch</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="mi">1</span><span class="o">:</span><span class="mi">4</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">        <span class="k">end</span>
-</span></span><span class="line"><span class="cl">        <span class="n">update!</span><span class="p">(</span><span class="n">opt</span><span class="p">,</span> <span class="n">model_tune</span><span class="p">,</span> <span class="n">grads</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">    <span class="k">end</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>train_epoch! (generic function with 1 method)
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">resnet_opt</span> <span class="o">=</span> <span class="n">Flux</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">Flux</span><span class="o">.</span><span class="n">Optimisers</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="mf">1e-3</span><span class="p">),</span> <span class="n">resnet_tune</span><span class="p">);</span>
-</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">for</span> <span class="n">iter</span> <span class="o">=</span> <span class="mi">1</span><span class="o">:</span><span class="mi">5</span>
-</span></span><span class="line"><span class="cl">    <span class="nd">@time</span> <span class="n">train_epoch!</span><span class="p">(</span><span class="n">resnet_infer</span><span class="p">,</span> <span class="n">resnet_tune</span><span class="p">,</span> <span class="n">resnet_opt</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">metric_train</span> <span class="o">=</span> <span class="n">eval_f</span><span class="p">(</span><span class="n">resnet_infer</span><span class="p">,</span> <span class="n">resnet_tune</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">metric_eval</span> <span class="o">=</span> <span class="n">eval_f</span><span class="p">(</span><span class="n">resnet_infer</span><span class="p">,</span> <span class="n">resnet_tune</span><span class="p">,</span> <span class="n">val_loader</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="nd">@info</span> <span class="s">&#34;train&#34;</span> <span class="n">metric</span> <span class="o">=</span> <span class="n">metric_train</span>
-</span></span><span class="line"><span class="cl">    <span class="nd">@info</span> <span class="s">&#34;eval&#34;</span> <span class="n">metric</span> <span class="o">=</span> <span class="n">metric_eval</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>176.283332 seconds (37.11 M allocations: 98.153 GiB, 6.06% gc time, 143.87% compilation time)
 
 
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mtrain
-[36m[1m└ [22m[39m  metric = 0.5744
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39meval
-[36m[1m└ [22m[39m  metric = 0.5455
 
+Let's quickly go over these results now:
+1. State estimation: The **true state** and the **estimated state** show excellent agreement, demonstrating the accuracy of the smoother model implemented via `RxInfer`. The **uncertainty bounds** around the estimated states are noticeable, especially early in the domain. This reflects the natural uncertainty in state estimation since only **accelerations** are observed, whereas displacements and velocities are inferred through integration.
+2. Reconstructed response: the **real response** and the **reconstructed response** align well across the domain, confirming that the filter captures the dynamics quite nicely. The uncertainty bounds here are narrower, showing that the confidence improves as the filter incorporates observations of these quantities of interest (i.e. accelerations).
+3. Input force reconstruction: The **input force** and its **reconstructed counterpart** show significant high frequency variations with very narrow uncertainty bounds. This is expected because accelerations, being the directly observed quantities, are estimated with higher confidence. Plus, we gave ourselves a small advantage by using a well-calibrated prior on this quantity of interest ($Q_p$).
 
- 70.815518 seconds (2.42 M allocations: 95.936 GiB, 11.25% gc time)
+The results demonstrate how well the smoother model, implemented with RxInfer, performs in capturing the system dynamics and reconstructing hidden states and inputs. Notably, setting up the probabilistic model was straightforward and intuitive—much easier than dealing with the rest of the structural modeling! This highlights the power of RxInfer for quickly building and solving complex inference problems while keeping the implementation clean and efficient.
 
-
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mtrain
-[36m[1m└ [22m[39m  metric = 0.6823
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39meval
-[36m[1m└ [22m[39m  metric = 0.6273
-
-
- 90.463025 seconds (2.42 M allocations: 95.936 GiB, 11.21% gc time)
-
-
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mtrain
-[36m[1m└ [22m[39m  metric = 0.7032
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39meval
-[36m[1m└ [22m[39m  metric = 0.6455
-
-
- 94.362892 seconds (2.42 M allocations: 95.936 GiB, 10.91% gc time)
-
-
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mtrain
-[36m[1m└ [22m[39m  metric = 0.7433
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39meval
-[36m[1m└ [22m[39m  metric = 0.6727
-
-
-116.526515 seconds (2.42 M allocations: 95.936 GiB, 9.62% gc time)
-
-
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mtrain
-[36m[1m└ [22m[39m  metric = 0.7885
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39meval
-[36m[1m└ [22m[39m  metric = 0.6909
-</code></pre>
-<hr>
-<h2 id="vision-transformers">Vision Transformers</h2>
-<hr>
-<p>Similar to the PyTorch demonstration, we can do transfer learning by changing a different computer vision model (Vision Transformer).</p>
-<p>Let&rsquo;s get into it.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">vit_model</span> <span class="o">=</span> <span class="n">ViT</span><span class="p">(</span><span class="ss">:base</span><span class="p">;</span> <span class="n">pretrain</span> <span class="o">=</span> <span class="nb">true</span><span class="p">)</span><span class="o">.</span><span class="n">layers</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># let&#39;s have a look at the model head, to see how many inputs the head needs</span>
-</span></span><span class="line"><span class="cl"><span class="n">vit_model</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
-</span></span></code></pre></div><pre><code>Chain(
-  LayerNorm(768),                       [90m# 1_536 parameters[39m
-  Dense(768 =&gt; 1000),                   [90m# 769_000 parameters[39m
-) [90m                  # Total: 4 arrays, [39m770_536 parameters, 2.940 MiB.
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># modify the head</span>
-</span></span><span class="line"><span class="cl"><span class="n">vit_infer</span> <span class="o">=</span> <span class="n">deepcopy</span><span class="p">(</span><span class="n">vit_model</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># notice how we keep the input to the model head</span>
-</span></span><span class="line"><span class="cl"><span class="n">vit_tune</span> <span class="o">=</span> <span class="n">Chain</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">LayerNorm</span><span class="p">(</span><span class="mi">768</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">    <span class="n">Dense</span><span class="p">(</span><span class="mi">768</span> <span class="o">=&gt;</span> <span class="mi">4</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">    <span class="p">)</span>
-</span></span></code></pre></div><pre><code>Chain(
-  LayerNorm(768),                       [90m# 1_536 parameters[39m
-  Dense(768 =&gt; 4),                      [90m# 3_076 parameters[39m
-) [90m                  # Total: 4 arrays, [39m4_612 parameters, 18.352 KiB.
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">vit_opt</span> <span class="o">=</span> <span class="n">Flux</span><span class="o">.</span><span class="n">setup</span><span class="p">(</span><span class="n">Flux</span><span class="o">.</span><span class="n">Optimisers</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="mf">1e-3</span><span class="p">),</span> <span class="n">vit_tune</span><span class="p">);</span>
-</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">for</span> <span class="n">iter</span> <span class="o">=</span> <span class="mi">1</span><span class="o">:</span><span class="mi">5</span>
-</span></span><span class="line"><span class="cl">    <span class="nd">@time</span> <span class="n">train_epoch!</span><span class="p">(</span><span class="n">vit_infer</span><span class="p">,</span> <span class="n">vit_tune</span><span class="p">,</span> <span class="n">vit_opt</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">metric_train</span> <span class="o">=</span> <span class="n">eval_f</span><span class="p">(</span><span class="n">vit_infer</span><span class="p">,</span> <span class="n">vit_tune</span><span class="p">,</span> <span class="n">train_loader</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">metric_eval</span> <span class="o">=</span> <span class="n">eval_f</span><span class="p">(</span><span class="n">vit_infer</span><span class="p">,</span> <span class="n">vit_tune</span><span class="p">,</span> <span class="n">val_loader</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="nd">@info</span> <span class="s">&#34;train&#34;</span> <span class="n">metric</span> <span class="o">=</span> <span class="n">metric_train</span>
-</span></span><span class="line"><span class="cl">    <span class="nd">@info</span> <span class="s">&#34;eval&#34;</span> <span class="n">metric</span> <span class="o">=</span> <span class="n">metric_eval</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>627.303072 seconds (17.32 M allocations: 291.924 GiB, 4.61% gc time, 3.66% compilation time)
-
-
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mtrain
-[36m[1m└ [22m[39m  metric = 0.7058
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39meval
-[36m[1m└ [22m[39m  metric = 0.6273
-
-
-565.986959 seconds (2.54 M allocations: 291.028 GiB, 4.71% gc time)
-
-
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mtrain
-[36m[1m└ [22m[39m  metric = 0.8042
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39meval
-[36m[1m└ [22m[39m  metric = 0.6273
-
-
-516.041945 seconds (2.54 M allocations: 291.028 GiB, 4.92% gc time)
-
-
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mtrain
-[36m[1m└ [22m[39m  metric = 0.866
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39meval
-[36m[1m└ [22m[39m  metric = 0.6818
-
-
-515.415614 seconds (2.54 M allocations: 291.028 GiB, 4.80% gc time)
-
-
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mtrain
-[36m[1m└ [22m[39m  metric = 0.8973
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39meval
-[36m[1m└ [22m[39m  metric = 0.6818
-
-
-427.423410 seconds (2.54 M allocations: 291.028 GiB, 5.01% gc time)
-
-
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mtrain
-[36m[1m└ [22m[39m  metric = 0.9199
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39meval
-[36m[1m└ [22m[39m  metric = 0.6727
-</code></pre>
-<h3 id="save-the-models">Save the Models</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">JLD2</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">resnet_model_state</span> <span class="o">=</span> <span class="n">Flux</span><span class="o">.</span><span class="n">state</span><span class="p">(</span><span class="n">resnet_model</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">vit_model_state</span> <span class="o">=</span> <span class="n">Flux</span><span class="o">.</span><span class="n">state</span><span class="p">(</span><span class="n">vit_model</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">jldsave</span><span class="p">(</span><span class="s">&#34;resnet_model.jld2&#34;</span><span class="p">;</span> <span class="n">resnet_model_state</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">jldsave</span><span class="p">(</span><span class="s">&#34;vit_model.jld2&#34;</span><span class="p">;</span> <span class="n">vit_model_state</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>[33m[1m┌ [22m[39m[33m[1mWarning: [22m[39mOpening file with JLD2.MmapIO failed, falling back to IOStream
-[33m[1m└ [22m[39m[90m@ JLD2 C:\Users\ingvi\.julia\packages\JLD2\7uAqU\src\JLD2.jl:300[39m
-[33m[1m┌ [22m[39m[33m[1mWarning: [22m[39mOpening file with JLD2.MmapIO failed, falling back to IOStream
-[33m[1m└ [22m[39m[90m@ JLD2 C:\Users\ingvi\.julia\packages\JLD2\7uAqU\src\JLD2.jl:300[39m
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">BSON</span><span class="o">:</span> <span class="nd">@save</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="nd">@save</span> <span class="s">&#34;resnet_model_sate.bson&#34;</span> <span class="n">resnet_model</span>
-</span></span><span class="line"><span class="cl"><span class="nd">@save</span> <span class="s">&#34;vit_model_state.bson&#34;</span> <span class="n">vit_model</span>
-</span></span></code></pre></div><h2 id="thank-you">Thank you!</h2>
-<p>I hope this demonstration on using Julia and <code>Flux</code> for transfer learning was helpful!</p>
-<p>Victor</p>
-]]></content:encoded>
-    </item>
-    
-    <item>
-      <title>Bayesian Time Series Analysis with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</link>
-      <pubDate>Sat, 02 Mar 2024 16:57:07 +0800</pubDate>
-      
-      <guid>http://localhost:1313/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</guid>
-      <description>This tutorial covers the fundamentals of Bayesian approaches to time series, model construction, and practical implementation, using real-world data for hands-on learning.</description>
-      <content:encoded><![CDATA[<hr>
-<h2 id="introduction">Introduction</h2>
-<p>In this tutorial, an AR(p) (Autoregressive model of order <em>p</em>) is employed to analyze the trneds of a time series and forecast the behavior of the signal.</p>
-<p>Auto-regressive models are based on the assumption the behavior of a time series or signal depends on past values. The order of the AR model tells &ldquo;how far back&rdquo; the past values will affect the current value.</p>
-<h4 id="credits">Credits</h4>
-<p>This exercise is mostly following <a href="https://youtu.be/vfTYCm_Fr8I?si=D3Grgk82tV_Qzdxw">this tutorial</a>.</p>
-<h3 id="definition">Definition</h3>
-<p>The <em>AR(p)</em> model is defined as:</p>
-<p>$$
-X_t = \sum_{i=1}^{p} \phi_i X_{t-i} + \varepsilon_t
-$$</p>
-<p>where $\varepsilon \sim \mathcal{N}(0,\sigma^2)$ is the model uncertainty represented as white Gaussian noise, i.e. it follows a normal distribution of mean $\mu=0$ and standard deviation $\sigma$.</p>
-<p>It follows that an <em>AR(2)</em> model is defined as:</p>
-<p>$$
-X_t = \phi_1 X_{t-1} + \phi_2 X_{t-2} + \varepsilon_t
-$$</p>
-<p>Naturally, we want to find the parameters $\theta={\phi_1, \phi_2,\sigma}$. Since these are unobserved quantities of interest, we need to use an inference method to reveal these parameters. We will use Bayesian inference to achieve this goal.</p>
-<h2 id="data-exploration">Data Exploration</h2>
-<p>For this example, I will generate artificial data. This will be done by first defining some values for the parameters $\theta$ and then we will generate random data using those parameters by initializing the $X_1, X_2$ values, and then applying the AR(2) equation to generate the subsequent values.</p>
-<p>First, we import the relevant packages.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">StatsPlots</span><span class="p">,</span> <span class="n">Turing</span><span class="p">,</span> <span class="n">LaTeXStrings</span><span class="p">,</span> <span class="n">Random</span><span class="p">,</span> <span class="n">DataFrames</span>
-</span></span><span class="line"><span class="cl"><span class="n">Random</span><span class="o">.</span><span class="n">seed!</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>TaskLocalRNG()
-</code></pre>
-<p>Now we create some artificial data. The steps involved in this are as follows:</p>
-<ol>
-<li>Define some values for the parameters $\theta$</li>
-<li>Set the number of timesteps <em>t</em></li>
-<li>Initialize an empty vector of size $\mathbb{R}^{t+p}$</li>
-<li>Initialize the first two $X$ values with randomly generated numbers using <code>rand</code></li>
-<li>Populate the vector by using the equation for $X_t$</li>
-</ol>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># define true values for θ</span>
-</span></span><span class="line"><span class="cl"><span class="n">true_phi_1</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.4</span>
-</span></span><span class="line"><span class="cl"><span class="n">true_phi_2</span> <span class="o">=</span> <span class="mf">0.3</span>
-</span></span><span class="line"><span class="cl"><span class="n">true_sigma</span> <span class="o">=</span> <span class="mf">0.12</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># define the time steps</span>
-</span></span><span class="line"><span class="cl"><span class="n">time</span> <span class="o">=</span> <span class="mi">100</span>
-</span></span><span class="line"><span class="cl">	
-</span></span><span class="line"><span class="cl"><span class="c"># create an empty X vector</span>
-</span></span><span class="line"><span class="cl"><span class="n">X</span> <span class="o">=</span> <span class="kt">Vector</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}(</span><span class="nb">undef</span><span class="p">,</span> <span class="n">time</span><span class="o">+</span><span class="mi">2</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># initialize the X vector with two random values at time steps 1 and 2</span>
-</span></span><span class="line"><span class="cl"><span class="c"># to do this, use a random normally distributed number with mean zero and standard deviation σ, i.e., ε~N(0, σ)</span>
-</span></span><span class="line"><span class="cl"><span class="n">X</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">rand</span><span class="p">(</span><span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">true_sigma</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl"><span class="n">X</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">rand</span><span class="p">(</span><span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">true_sigma</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># populate vector X</span>
-</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">t</span> <span class="k">in</span> <span class="mi">3</span><span class="o">:</span><span class="p">(</span><span class="n">time</span><span class="o">+</span><span class="mi">2</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="p">]</span> <span class="o">=</span> <span class="n">true_phi_1</span><span class="o">*</span><span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span>
-</span></span><span class="line"><span class="cl">	<span class="n">true_phi_2</span><span class="o">*</span><span class="n">X</span><span class="p">[</span><span class="n">t</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span>
-</span></span><span class="line"><span class="cl">	<span class="n">rand</span><span class="p">(</span><span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">true_sigma</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>	
-</span></span></code></pre></div><h3 id="visualize-the-artificial-data">Visualize the (Artificial) Data</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">p_data</span> <span class="o">=</span> <span class="n">plot</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="mi">3</span><span class="o">:</span><span class="k">end</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">    <span class="n">legend</span> <span class="o">=</span> <span class="nb">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">linewidth</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="c"># xlims = (0, 60),</span>
-</span></span><span class="line"><span class="cl">    <span class="c"># ylims = (-0.6, 0.6),</span>
-</span></span><span class="line"><span class="cl">    <span class="n">title</span> <span class="o">=</span> <span class="s">&#34;Bayesian Autoregressive AR(2) Model&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">xlabel</span> <span class="o">=</span> <span class="sa">L</span><span class="s">&#34;t&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">ylabel</span> <span class="o">=</span> <span class="sa">L</span><span class="s">&#34;X_t&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">widen</span> <span class="o">=</span> <span class="nb">true</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240222_Bayesian_Time_Series_Analysis/output_5_0.svg" type="" alt="svg"  /></p>
-<h2 id="modeling">Modeling</h2>
-<p>The next step is to construct our probabilistic model. Again, the goal here is to infer the values of the model parameters $\theta$. Once we have inferred these parameters, we can make probabilistic predictions on the future behavior of the signal $X$.</p>
-<h3 id="bayesian-model">Bayesian model</h3>
-<p>Since we are using a Bayesian approach, our goal, in Bayesian terms, is to find the <em>posterior distribution</em> of the parameters $\theta$, given a prior distribution, or prior knowledge, of the parameters before making any observations, i.e., seeing any data, and also a likelihood function, which reflects what kind of distribution (we assume) that the data is sourced from. Another way of understanding the likelihood function is the probability of making a set of observations $X$ given the parameters $\theta$.</p>
-<p>This relationship is established by Bayes&rsquo; Theorem:</p>
-<p>$$
-P(\theta | X) \propto P(X | \theta)P(\theta)
-$$</p>
-<p>In summary, constructing the Bayesian model in this case comprises a selection of prior distributions for our unknown parameters $\theta$ and a likelihood function. We will do this using the <code>Turing.jl</code> package.</p>
-<p>The model therefore will consist of the prior distributions:</p>
-<p>$$
-\begin{align*}
-\phi_1 &amp; \sim \mathcal{N}(0, 1) \
-\phi_2 &amp; \sim \mathcal{N}(0, 1) \
-\sigma &amp; \sim \text{Exp}(1)
-\end{align*}
-$$</p>
-<p>And the likelihood:</p>
-<p>$$
-X_t \sim \mathcal{N}(\mu_t, \sigma)
-$$</p>
-<p>where $\mu_t = \sum_{i=1}^{p} \phi_i X_{t-i}$ is the mean function of the distribution that governs X_t.</p>
-<h4 id="a-comment-on-the-choice-of-priors">A comment on the choice of priors</h4>
-<p>For autoregressive parameters, using a normal distribution is a common choice. This is because the normal distribution is convenient and allows for a range of plausible values.</p>
-<p>For the prior on the model uncertainty, the exponential distribution is sometimes used for non-negative parameters and has a similar role to the inverse gamma.</p>
-<p>Furthermore, the inverse gamma distribution is often chosen as a prior for the standard deviation because it is conjugate to the normal likelihood. This means that the posterior distribution will have a known form, making computations more tractable.</p>
-<h3 id="bayesian-model-using-turingjl">Bayesian model using <code>Turing.jl</code></h3>
-<p>Now we proceed to set up the model using the <code>Turing.jl</code> package.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="nd">@model</span> <span class="k">function</span> <span class="n">ar</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>    <span class="c"># pass the data X and the time vector</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">		<span class="c"># priors</span>
-</span></span><span class="line"><span class="cl">		
-</span></span><span class="line"><span class="cl">		<span class="n">phi_1</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="n">phi_2</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="n">sigma</span> <span class="o">~</span> <span class="n">Exponential</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">		<span class="c"># likelihood</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">		<span class="c"># initialize with random initial values</span>
-</span></span><span class="line"><span class="cl">		<span class="n">X</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="n">X</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">		<span class="c"># populate with samples</span>
-</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">3</span><span class="o">:</span><span class="p">(</span><span class="n">time</span><span class="o">+</span><span class="mi">2</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">			<span class="n">mu</span> <span class="o">=</span> <span class="n">phi_1</span><span class="o">*</span><span class="n">X</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">phi_2</span><span class="o">*</span><span class="n">X</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">			<span class="n">X</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="k">end</span>
-</span></span><span class="line"><span class="cl">	<span class="k">end</span>
-</span></span></code></pre></div><pre><code>ar (generic function with 2 methods)
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">ar</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">sampler</span> <span class="o">=</span> <span class="n">NUTS</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl"><span class="n">samples</span> <span class="o">=</span> <span class="mi">1_000</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">chain</span> <span class="o">=</span> <span class="n">sample</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">sampler</span><span class="p">,</span> <span class="n">samples</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.4
-[32mSampling: 100%|█████████████████████████████████████████| Time: 0:00:01[39m
-
-
-
-
-
-Chains MCMC chain (1000×15×1 Array{Float64, 3}):
-
-Iterations        = 501:1:1500
-Number of chains  = 1
-Samples per chain = 1000
-Wall duration     = 11.59 seconds
-Compute duration  = 11.59 seconds
-parameters        = phi_1, phi_2, sigma
-internals         = lp, n_steps, is_accept, acceptance_rate, log_density, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size
-
-Summary Statistics
- [1m parameters [0m [1m    mean [0m [1m     std [0m [1m    mcse [0m [1m ess_bulk [0m [1m ess_tail [0m [1m    rhat [0m [1m e[0m ⋯
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m  Float64 [0m [90m  Float64 [0m [90m Float64 [0m [90m  [0m ⋯
-
-       phi_1   -0.3830    0.1047    0.0036   836.6151   762.4445    0.9996     ⋯
-       phi_2    0.1587    0.1012    0.0035   838.3014   749.6718    1.0002     ⋯
-       sigma    0.1083    0.0079    0.0003   755.4034   743.3822    1.0014     ⋯
-[36m                                                                1 column omitted[0m
-
-Quantiles
- [1m parameters [0m [1m    2.5% [0m [1m   25.0% [0m [1m   50.0% [0m [1m   75.0% [0m [1m   97.5% [0m
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m
-
-       phi_1   -0.5733   -0.4562   -0.3858   -0.3141   -0.1771
-       phi_2   -0.0339    0.0913    0.1562    0.2256    0.3549
-       sigma    0.0943    0.1030    0.1079    0.1130    0.1257
-</code></pre>
-<h3 id="visualize-and-summarize-the-results">Visualize and Summarize the Results</h3>
-<p>Next we can access the MCMC Diagnostics and generate a summary of the results.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">plot</span><span class="p">(</span><span class="n">chain</span><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240222_Bayesian_Time_Series_Analysis/output_10_0.svg" type="" alt="svg"  /></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">DataFrame</span><span class="p">(</span><span class="n">summarystats</span><span class="p">(</span><span class="n">chain</span><span class="p">))</span>
-</span></span></code></pre></div><div><div style = "float: left;"><span>3×8 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">parameters</th><th style = "text-align: left;">mean</th><th style = "text-align: left;">std</th><th style = "text-align: left;">mcse</th><th style = "text-align: left;">ess_bulk</th><th style = "text-align: left;">ess_tail</th><th style = "text-align: left;">rhat</th><th style = "text-align: left;">ess_per_sec</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Symbol" style = "text-align: left;">Symbol</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">phi_1</td><td style = "text-align: right;">-0.383019</td><td style = "text-align: right;">0.104695</td><td style = "text-align: right;">0.00361324</td><td style = "text-align: right;">836.615</td><td style = "text-align: right;">762.444</td><td style = "text-align: right;">0.999585</td><td style = "text-align: right;">72.1655</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">phi_2</td><td style = "text-align: right;">0.158661</td><td style = "text-align: right;">0.101196</td><td style = "text-align: right;">0.00351463</td><td style = "text-align: right;">838.301</td><td style = "text-align: right;">749.672</td><td style = "text-align: right;">1.00021</td><td style = "text-align: right;">72.311</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">sigma</td><td style = "text-align: right;">0.108342</td><td style = "text-align: right;">0.00788622</td><td style = "text-align: right;">0.000291067</td><td style = "text-align: right;">755.403</td><td style = "text-align: right;">743.382</td><td style = "text-align: right;">1.00145</td><td style = "text-align: right;">65.1603</td></tr></tbody></table></div>
-<h2 id="predictions">Predictions</h2>
-<h3 id="making-predictions">Making Predictions</h3>
-<p>To make predictions, the following steps are taken:</p>
-<ol>
-<li>Set the number of time steps into the future, $t_f$</li>
-<li>Initialize an empty matrix for the forecasted $X$ values - This will be a matrix because it will be a collection of vectors. Each vector will represent one sample forecast</li>
-<li>Initialize two steps of each of the sample vectors to be generated - In practical terms, initialize the first number of each column; each <em>column</em> will represent a forecast time series</li>
-</ol>
-<p>Keep in mind that what will be done here is to create samples of the future behavior of the signal $t_f$ number of time steps into the future. To do this, we will generate signals that use the posterior distributions of the parameters $\theta$ by calling the function <code>rand(chain[:,Z,Z])</code> which will randomly pick a number out of the sample pool, effectively &ldquo;sampling&rdquo; from that posterior distribution (sample pool).</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">time_future</span> <span class="o">=</span> <span class="mi">15</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">X_future</span> <span class="o">=</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}(</span><span class="nb">undef</span><span class="p">,</span> <span class="n">time_future</span><span class="o">+</span><span class="mi">2</span><span class="p">,</span> <span class="n">samples</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># Initialize the first two time steps for every forecast</span>
-</span></span><span class="line"><span class="cl"><span class="n">X_future</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="o">:</span><span class="p">]</span> <span class="o">.=</span> <span class="n">X</span><span class="p">[</span><span class="n">time</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="n">X_future</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="o">:</span><span class="p">]</span> <span class="o">.=</span> <span class="n">X</span><span class="p">[</span><span class="n">time</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># populate the forecast vectors by sampling from the posterior sample pool of the parameters θ</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">col</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">samples</span>
-</span></span><span class="line"><span class="cl">	<span class="n">phi_1_future</span> <span class="o">=</span> <span class="n">rand</span><span class="p">(</span><span class="n">chain</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">	<span class="n">phi_2_future</span> <span class="o">=</span> <span class="n">rand</span><span class="p">(</span><span class="n">chain</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">	<span class="n">error_future</span> <span class="o">=</span> <span class="n">rand</span><span class="p">(</span><span class="n">chain</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">	<span class="n">noise_future</span> <span class="o">=</span> <span class="n">rand</span><span class="p">(</span><span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">error_future</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">		
-</span></span><span class="line"><span class="cl">	<span class="k">for</span> <span class="n">row</span> <span class="k">in</span> <span class="mi">3</span><span class="o">:</span><span class="p">(</span><span class="n">time_future</span><span class="o">+</span><span class="mi">2</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="n">X_future</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span> <span class="o">=</span> 
-</span></span><span class="line"><span class="cl">			<span class="n">phi_1_future</span> <span class="o">*</span> <span class="n">X_future</span><span class="p">[</span><span class="n">row</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span> <span class="o">+</span> 
-</span></span><span class="line"><span class="cl">			<span class="n">phi_2_future</span> <span class="o">*</span> <span class="n">X_future</span><span class="p">[</span><span class="n">row</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span> <span class="o">+</span>
-</span></span><span class="line"><span class="cl">			<span class="n">noise_future</span>
-</span></span><span class="line"><span class="cl">	<span class="k">end</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><h4 id="visualize-the-forecast">Visualize the forecast</h4>
-<p>Now that we <em>propagated the uncertainty</em> of in the posterior distribution of the parameters $\theta$, we can plot the posterior predictive distribution of $X$, $P(X^*|\theta)$.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">time_predict</span> <span class="o">=</span> <span class="n">time</span><span class="o">:</span><span class="p">(</span><span class="n">time</span> <span class="o">+</span> <span class="n">time_future</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">samples</span>
-</span></span><span class="line"><span class="cl">	<span class="n">plot!</span><span class="p">(</span><span class="n">p_data</span><span class="p">,</span> <span class="n">time_predict</span><span class="p">,</span> <span class="n">X_future</span><span class="p">[</span><span class="mi">2</span><span class="o">:</span><span class="k">end</span><span class="p">,</span> <span class="n">i</span><span class="p">],</span>
-</span></span><span class="line"><span class="cl">	<span class="n">legend</span> <span class="o">=</span> <span class="nb">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="c"># predictions</span>
-</span></span><span class="line"><span class="cl">	<span class="n">linewidth</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">color</span> <span class="o">=</span> <span class="ss">:green</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.1</span>
-</span></span><span class="line"><span class="cl">	<span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">p_data</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># visualize mean values for predictions</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">X_future_mean</span> <span class="o">=</span> <span class="p">[</span><span class="n">mean</span><span class="p">(</span><span class="n">X_future</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="o">:</span><span class="n">samples</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">2</span><span class="o">:</span><span class="p">(</span><span class="n">time_future</span><span class="o">+</span><span class="mi">2</span><span class="p">)]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">plot!</span><span class="p">(</span><span class="n">p_data</span><span class="p">,</span> <span class="n">time_predict</span><span class="p">,</span> <span class="n">X_future_mean</span><span class="p">,</span> 
-</span></span><span class="line"><span class="cl">	<span class="n">legend</span> <span class="o">=</span> <span class="nb">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">linewidth</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> 
-</span></span><span class="line"><span class="cl">	<span class="n">color</span> <span class="o">=</span> <span class="ss">:red</span><span class="p">,</span> 
-</span></span><span class="line"><span class="cl">	<span class="n">linestyle</span> <span class="o">=</span> <span class="ss">:dot</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240222_Bayesian_Time_Series_Analysis/output_15_0.svg" type="" alt="svg"  /></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"></code></pre></div>]]></content:encoded>
-    </item>
-    
-    <item>
-      <title>Bayesian Poisson Regression with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20240217_bayesian_poisson_regression/20240217_bayesian_poisson_regression/</link>
-      <pubDate>Sat, 17 Feb 2024 11:57:07 +0800</pubDate>
-      
-      <guid>http://localhost:1313/posts/20240217_bayesian_poisson_regression/20240217_bayesian_poisson_regression/</guid>
-      <description>Explore Bayesian Poisson regression for modeling count data with Julia and Turing.jl. This tutorial includes model setup, implementation, and performance assessment with a practical example.</description>
-      <content:encoded><![CDATA[<hr>
-<p>In this example, I am following the tutorials found in:</p>
-<ul>
-<li><a href="https://turinglang.org/dev/tutorials/07-poisson-regression/">Turing.jl - Bayesian Poisson Regression</a></li>
-<li><a href="https://www.pymc.io/projects/examples/en/latest/generalized_linear_models/GLM-poisson-regression.html">PyMC - GLM: Poisson Regression</a></li>
-</ul>
-<p>Both examples show the interaction between some variables and a discrete outcome. In this case, the outcome is the number of sneezes per day (i.e. a discrete outcome) in some study subjects, and whether or not they take antihistamine medicine and whether or not they drink alcohol.</p>
-<p>This example explores how these factors, and more specifically, the combination of these factors, affect the number of times a person sneezes.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">CSV</span><span class="p">,</span> <span class="n">DataFrames</span><span class="p">,</span> <span class="n">Turing</span><span class="p">,</span> <span class="n">StatsPlots</span><span class="p">,</span> <span class="n">Plots</span><span class="p">,</span> <span class="n">Random</span>
-</span></span><span class="line"><span class="cl"><span class="n">Random</span><span class="o">.</span><span class="n">seed!</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>TaskLocalRNG()
-</code></pre>
-<h2 id="collect-generate-the-data">Collect (generate) the data</h2>
-<p>In this example, we will generate the data in the same way as in the tutorials:</p>
-<table>
-  <thead>
-      <tr>
-          <th style="text-align: left"></th>
-          <th style="text-align: center">No Alcohol</th>
-          <th style="text-align: center">Alcohol</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td style="text-align: left"><strong>No Meds</strong></td>
-          <td style="text-align: center">6</td>
-          <td style="text-align: center">36</td>
-      </tr>
-      <tr>
-          <td style="text-align: left"><strong>Meds</strong></td>
-          <td style="text-align: center">1</td>
-          <td style="text-align: center">3</td>
-      </tr>
-  </tbody>
-</table>
-<p>Those values will be used to create the artificial data by generating Poisson-distributed random samples.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">theta_noalc_nomed</span> <span class="o">=</span> <span class="mi">6</span>
-</span></span><span class="line"><span class="cl"><span class="n">theta_noalc_med</span> <span class="o">=</span> <span class="mi">1</span>
-</span></span><span class="line"><span class="cl"><span class="n">theta_alc_nomed</span> <span class="o">=</span> <span class="mi">36</span>
-</span></span><span class="line"><span class="cl"><span class="n">theta_alc_med</span> <span class="o">=</span> <span class="mi">3</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">ns</span> <span class="o">=</span> <span class="mi">500</span>    <span class="c"># number of samples</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># create a data frame</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="n">DataFrame</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">    <span class="n">hcat</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">        <span class="n">vcat</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">        <span class="n">rand</span><span class="p">(</span><span class="n">Poisson</span><span class="p">(</span><span class="n">theta_noalc_med</span><span class="p">),</span> <span class="n">ns</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">        <span class="n">rand</span><span class="p">(</span><span class="n">Poisson</span><span class="p">(</span><span class="n">theta_alc_med</span><span class="p">),</span> <span class="n">ns</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">        <span class="n">rand</span><span class="p">(</span><span class="n">Poisson</span><span class="p">(</span><span class="n">theta_noalc_nomed</span><span class="p">),</span> <span class="n">ns</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">        <span class="n">rand</span><span class="p">(</span><span class="n">Poisson</span><span class="p">(</span><span class="n">theta_alc_nomed</span><span class="p">),</span> <span class="n">ns</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="p">),</span>
-</span></span><span class="line"><span class="cl">        <span class="n">vcat</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">            <span class="n">falses</span><span class="p">(</span><span class="n">ns</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">            <span class="n">trues</span><span class="p">(</span><span class="n">ns</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">            <span class="n">falses</span><span class="p">(</span><span class="n">ns</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">            <span class="n">trues</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="p">),</span>
-</span></span><span class="line"><span class="cl">        <span class="n">vcat</span><span class="p">(</span>
-</span></span><span class="line"><span class="cl">            <span class="n">falses</span><span class="p">(</span><span class="n">ns</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">            <span class="n">falses</span><span class="p">(</span><span class="n">ns</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">            <span class="n">trues</span><span class="p">(</span><span class="n">ns</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">            <span class="n">trues</span><span class="p">(</span><span class="n">ns</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">        <span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="p">),</span> <span class="ss">:auto</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># assign names to headers</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">head_names</span> <span class="o">=</span> <span class="p">[</span><span class="ss">:n_sneezes</span><span class="p">,</span> <span class="ss">:alcohol</span><span class="p">,</span> <span class="ss">:nomeds</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">sneeze_data</span> <span class="o">=</span> <span class="n">DataFrame</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">head_names</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">first</span><span class="p">(</span><span class="n">sneeze_data</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
-</span></span></code></pre></div><div><div style = "float: left;"><span>10×3 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">n_sneezes</th><th style = "text-align: left;">alcohol</th><th style = "text-align: left;">nomeds</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: right;">1</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: right;">1</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: right;">1</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: right;">1</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: right;">1</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: right;">2</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">10</td><td style = "text-align: right;">2</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td></tr></tbody></table></div>
-<h3 id="visualize-the-data">Visualize the data</h3>
-<p>Now that we have &ldquo;collected&rdquo; some data on the number of sneezes per day from a number of people, we visualize the data.</p>
-<p>The way we are collecting and plotting these data sub-sets is as follows:</p>
-<ol>
-<li>Call the histogram function</li>
-<li>Create a histogram of the dataframe &ldquo;sneeze_data&rdquo; we &ldquo;collected&rdquo; previously</li>
-<li>Select a subset of that dataframe</li>
-<li>All the rows of the columns where alcohol is <code>false</code> i.e. 0 AND all the rows where no medicine was taken is also <code>false</code></li>
-<li>All the rows of the columns where alcohol is <code>false</code> AND all the rows of where medicine is <code>true</code></li>
-<li>&hellip; and so on</li>
-</ol>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># create separate histograms for each case</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">p1</span> <span class="o">=</span> <span class="n">histogram</span><span class="p">(</span><span class="n">sneeze_data</span><span class="p">[(</span><span class="n">sneeze_data</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="ss">:alcohol</span><span class="p">]</span> <span class="o">.==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">.&amp;</span> <span class="p">(</span><span class="n">sneeze_data</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="ss">:nomeds</span><span class="p">]</span> <span class="o">.==</span> <span class="mi">0</span><span class="p">),</span> <span class="ss">:n_sneezes</span><span class="p">];</span> <span class="n">title</span> <span class="o">=</span> <span class="s">&#34;No alcohol + No Meds&#34;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s">&#34;People Count&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">p2</span> <span class="o">=</span> <span class="n">histogram</span><span class="p">(</span><span class="n">sneeze_data</span><span class="p">[(</span><span class="n">sneeze_data</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="ss">:alcohol</span><span class="p">]</span> <span class="o">.==</span> <span class="mi">1</span><span class="p">)</span> <span class="o">.&amp;</span> <span class="p">(</span><span class="n">sneeze_data</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="ss">:nomeds</span><span class="p">]</span> <span class="o">.==</span> <span class="mi">0</span><span class="p">),</span> <span class="ss">:n_sneezes</span><span class="p">];</span> <span class="n">title</span> <span class="o">=</span> <span class="s">&#34;No alcohol + Meds&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">p3</span> <span class="o">=</span> <span class="n">histogram</span><span class="p">(</span><span class="n">sneeze_data</span><span class="p">[(</span><span class="n">sneeze_data</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="ss">:alcohol</span><span class="p">]</span> <span class="o">.==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">.&amp;</span> <span class="p">(</span><span class="n">sneeze_data</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="ss">:nomeds</span><span class="p">]</span> <span class="o">.==</span> <span class="mi">1</span><span class="p">),</span> <span class="ss">:n_sneezes</span><span class="p">];</span> <span class="n">title</span> <span class="o">=</span> <span class="s">&#34;Alcohol + No Meds&#34;</span><span class="p">,</span> <span class="n">xlabel</span> <span class="o">=</span> <span class="s">&#34;Sneezes/Day&#34;</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s">&#34;People Count&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">p4</span> <span class="o">=</span> <span class="n">histogram</span><span class="p">(</span><span class="n">sneeze_data</span><span class="p">[(</span><span class="n">sneeze_data</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="ss">:alcohol</span><span class="p">]</span> <span class="o">.==</span> <span class="mi">1</span><span class="p">)</span> <span class="o">.&amp;</span> <span class="p">(</span><span class="n">sneeze_data</span><span class="p">[</span><span class="o">:</span><span class="p">,</span><span class="ss">:nomeds</span><span class="p">]</span> <span class="o">.==</span> <span class="mi">1</span><span class="p">),</span> <span class="ss">:n_sneezes</span><span class="p">];</span> <span class="n">title</span> <span class="o">=</span> <span class="s">&#34;Alcohol + Meds&#34;</span><span class="p">,</span> <span class="n">xlabel</span> <span class="o">=</span> <span class="s">&#34;Sneezes/Day&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">plot</span><span class="p">(</span><span class="n">p1</span><span class="p">,</span> <span class="n">p2</span><span class="p">,</span> <span class="n">p3</span><span class="p">,</span> <span class="n">p4</span><span class="p">;</span> <span class="n">layout</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span> <span class="n">legend</span> <span class="o">=</span> <span class="nb">false</span><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240217_Bayesian_Poisson_Regression/output_5_0.svg" type="" alt="svg"  /></p>
-<h3 id="interpreting-the-data">Interpreting the data</h3>
-<p>The histograms show that the data from the &ldquo;study&rdquo; resembles a Poisson distribution (as mentioned in the PyMC tutorial, this is obvious, because that&rsquo;s how the data is generated!). Furthermore, the data is telling us something:</p>
-<ul>
-<li>Looking at the plot for &ldquo;no alcohol and medicine&rdquo; it is clear that most people reported very few sneezes; notice how the histogram skews towards large counts (of people) for very few sneezes</li>
-<li>On the other hand, notice how the &ldquo;alcohol and <em>no</em> medicine&rdquo; seems to tell us that many reported somewhere around 35 sneezes per day</li>
-</ul>
-<p>Again, we can start thinking of a pattern just by looking at the data, and it seems like the data is telling us that if you don&rsquo;t drink alcohol and take antihistamines, you are less likely to be sneezing around than if you drink alcohol and don&rsquo;t take any allergy meds. Makes sense, right?</p>
-<h2 id="model">Model</h2>
-<p>We established that the data looks like it could be modelled as a Poisson distribution. Thus, we can define our probabilistic model as follows:</p>
-<p>$$Y_{obs} \sim Poisson(\lambda)$$</p>
-<p>$$\log(\lambda) = \theta&rsquo;\mathbf{x} = \alpha + \beta&rsquo; \mathbf{x}$$</p>
-<p>What the above means is that we assume that the observed data outcomes, i.e., the number of sneezes per day, follow a Poisson distribution, which is a discrete probability distribution that models the number of events that occur in a fixed interval of time or space. The rate or intensity of the events, $\lambda$, depends on the predictor variables (the input data) $\mathcal{x}$, such as the season, the temperature, or, in our case, whether a person ingested alcohol and whether the person took antihistamines.</p>
-<p>The linear predictor $\theta&rsquo; \mathcal{x}$ is the function that links the predictor variables to the rate parameter, where $\theta = {\alpha, \beta&rsquo;}$ are the parameters of the model.</p>
-<p>Looking at the structure of the linear relationship between the paramters of the model, and the predictors:</p>
-<p>$$\log(\lambda) = \alpha + \beta&rsquo; \mathcal{x}$$</p>
-<p>we can understand that the parameter $\alpha$ is the intercept, which is the expected number of sneezes when all the predictor variables are zero. The parameter $\beta&rsquo;$ is a vector of coefficients, which measure the effect of each predictor variable $\mathcal{x}$ on the number of sneezes. The log link function ensures that the rate parameter $\lambda$ is always positive and allows for multiplicative effects of the predictor variables on the response variable.</p>
-<h3 id="define-the-model-with-turingjl">Define the model with <code>Turing.jl</code></h3>
-<p>Now that we know how we are modeling our data, we use the package <code>Turing.jl</code> to define the model. <code>Turing.jl</code> is a tool that helps us write models in Julia and find the best parameters for them.</p>
-<p>The model has two parts: the prior and the likelihood. The prior is what we think or guess about the parameters before we see the data. The likelihood is how likely the data is under the parameters. The parameters are the numbers that control the model, such as the rate of sneezes.</p>
-<p>We use the Poisson distribution for the likelihood, because it is good for counting things, like sneezes. The Poisson distribution has one parameter, the rate of sneezes. The higher the rate, the more sneezes we expect.</p>
-<p>We use any distribution for the prior, depending on how much we know about the parameters. If we know nothing, we use a flat prior, which does not favor any value. The prior affects the final answer, because it is our starting point.</p>
-<p>We use Bayes’ theorem to combine the prior and the likelihood and get the final answer. The final answer is the posterior, which is what we believe about the parameters after we see the data. The posterior is the best fit for the model and the data.</p>
-<p><strong>Let&rsquo;s crank up the Bayes!</strong></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="nd">@model</span> <span class="k">function</span> <span class="n">poisson</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">		<span class="c"># define the priors</span>
-</span></span><span class="line"><span class="cl">		<span class="n">alpha</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="n">alcohol</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="n">nomeds</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="c"># alc_med ~ Normal(0,1)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">		<span class="c"># define the likelihood</span>
-</span></span><span class="line"><span class="cl">		<span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">length</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	        <span class="n">log_lambda</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">+</span> <span class="n">alcohol</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">nomeds</span> <span class="o">*</span> <span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> 
-</span></span><span class="line"><span class="cl">	        <span class="n">lambda</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">log_lambda</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	        <span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">~</span> <span class="n">Poisson</span><span class="p">(</span><span class="n">lambda</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	    <span class="k">end</span>
-</span></span><span class="line"><span class="cl">	
-</span></span><span class="line"><span class="cl">	<span class="k">end</span>
-</span></span></code></pre></div><pre><code>poisson (generic function with 2 methods)
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># pass the data to the model function</span>
-</span></span><span class="line"><span class="cl">	<span class="c"># pass the predictor data as a Matrix for efficiency</span>
-</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">poisson</span><span class="p">(</span><span class="kt">Matrix</span><span class="p">(</span><span class="n">sneeze_data</span><span class="p">[</span><span class="o">!</span><span class="p">,[</span><span class="ss">:alcohol</span><span class="p">,</span> <span class="ss">:nomeds</span><span class="p">]</span> <span class="p">]),</span> <span class="n">sneeze_data</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="ss">:n_sneezes</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># select the sampler</span>
-</span></span><span class="line"><span class="cl"><span class="n">sampler</span> <span class="o">=</span> <span class="n">NUTS</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># define the number of sampler</span>
-</span></span><span class="line"><span class="cl"><span class="n">samples</span> <span class="o">=</span> <span class="mi">1000</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># set number of chains</span>
-</span></span><span class="line"><span class="cl"><span class="n">num_chains</span> <span class="o">=</span> <span class="mi">8</span>
-</span></span><span class="line"><span class="cl">	
-</span></span><span class="line"><span class="cl"><span class="c"># crank up the Bayes!</span>
-</span></span><span class="line"><span class="cl"><span class="n">chain</span> <span class="o">=</span> <span class="n">sample</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">sampler</span><span class="p">,</span> <span class="n">MCMCThreads</span><span class="p">(),</span> <span class="n">samples</span><span class="p">,</span> <span class="n">num_chains</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.00625
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.0125
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.00625
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.0125
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.0125
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.00625
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.00625
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.0125
-[32mSampling (8 threads): 100%|█████████████████████████████| Time: 0:00:00[39m
-
-
-
-
-
-Chains MCMC chain (1000×15×8 Array{Float64, 3}):
-
-Iterations        = 501:1:1500
-Number of chains  = 8
-Samples per chain = 1000
-Wall duration     = 13.66 seconds
-Compute duration  = 100.67 seconds
-parameters        = alpha, alcohol, nomeds
-internals         = lp, n_steps, is_accept, acceptance_rate, log_density, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size
-
-Summary Statistics
- [1m parameters [0m [1m    mean [0m [1m     std [0m [1m    mcse [0m [1m  ess_bulk [0m [1m  ess_tail [0m [1m    rhat [0m [1m[0m ⋯
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m   Float64 [0m [90m   Float64 [0m [90m Float64 [0m [90m[0m ⋯
-
-       alpha   -0.5025    0.0277    0.0005   2943.5608   2841.2874    1.0030   ⋯
-     alcohol    1.7333    0.0186    0.0003   3801.1996   3652.2403    1.0022   ⋯
-      nomeds    2.3348    0.0236    0.0004   2901.3750   3410.6453    1.0020   ⋯
-[36m                                                                1 column omitted[0m
-
-Quantiles
- [1m parameters [0m [1m    2.5% [0m [1m   25.0% [0m [1m   50.0% [0m [1m   75.0% [0m [1m   97.5% [0m
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m
-
-       alpha   -0.5568   -0.5212   -0.5023   -0.4839   -0.4486
-     alcohol    1.6974    1.7205    1.7331    1.7458    1.7698
-      nomeds    2.2891    2.3189    2.3346    2.3506    2.3824
-</code></pre>
-<p><strong>NOTE:</strong> The above routine employs the MCMCThreads method to sample multiple chains. However, in order to implement this, one needs to change the environment variables for the number of threads Julia can use. These two threads might shed some light as to how to achieve this:</p>
-<ol>
-<li><a href="https://docs.julialang.org/en/v1/manual/multi-threading/#man-multithreading">https://docs.julialang.org/en/v1/manual/multi-threading/#man-multithreading</a></li>
-<li><a href="https://discourse.julialang.org/t/julia-num-threads-in-vs-code-windows-10-wsl/28794">https://discourse.julialang.org/t/julia-num-threads-in-vs-code-windows-10-wsl/28794</a></li>
-</ol>
-<p>Of course, if you don&rsquo;t want to bother, then just change the last two functional lines in the cell above so that they read:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl">	<span class="c"># set number of chains - comment this out:</span>
-</span></span><span class="line"><span class="cl">	<span class="c"># num_chains = 8</span>
-</span></span><span class="line"><span class="cl">	
-</span></span><span class="line"><span class="cl">	<span class="c"># crank up the Bayes! - delete MCMCThreads() and num_chains</span>
-</span></span><span class="line"><span class="cl">	<span class="n">chain</span> <span class="o">=</span> <span class="n">sample</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">sampler</span><span class="p">,</span> <span class="n">samples</span><span class="p">)</span>
-</span></span></code></pre></div><h3 id="visualize-the-results">Visualize the results</h3>
-<p>We can see above that we have obtained a sample pool of the posterior distribution of the parameters. This is what we were looking for. What this means is that now we have a posterior distribution (in the form of a sample pool), which we can also summarize with summary statistics.</p>
-<p>Let&rsquo;s look at the diagnostics plots and the summary statistics.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">plot</span><span class="p">(</span><span class="n">chain</span><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240217_Bayesian_Poisson_Regression/output_13_0.svg" type="" alt="svg"  /></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">DataFrame</span><span class="p">(</span><span class="n">summarystats</span><span class="p">(</span><span class="n">chain</span><span class="p">))</span>
-</span></span></code></pre></div><div><div style = "float: left;"><span>3×8 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">parameters</th><th style = "text-align: left;">mean</th><th style = "text-align: left;">std</th><th style = "text-align: left;">mcse</th><th style = "text-align: left;">ess_bulk</th><th style = "text-align: left;">ess_tail</th><th style = "text-align: left;">rhat</th><th style = "text-align: left;">ess_per_sec</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Symbol" style = "text-align: left;">Symbol</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">alpha</td><td style = "text-align: right;">-0.502519</td><td style = "text-align: right;">0.0276553</td><td style = "text-align: right;">0.000511069</td><td style = "text-align: right;">2943.56</td><td style = "text-align: right;">2841.29</td><td style = "text-align: right;">1.00298</td><td style = "text-align: right;">29.2397</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">alcohol</td><td style = "text-align: right;">1.7333</td><td style = "text-align: right;">0.0186097</td><td style = "text-align: right;">0.000301611</td><td style = "text-align: right;">3801.2</td><td style = "text-align: right;">3652.24</td><td style = "text-align: right;">1.00224</td><td style = "text-align: right;">37.759</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">nomeds</td><td style = "text-align: right;">2.3348</td><td style = "text-align: right;">0.0236269</td><td style = "text-align: right;">0.000436385</td><td style = "text-align: right;">2901.38</td><td style = "text-align: right;">3410.65</td><td style = "text-align: right;">1.00197</td><td style = "text-align: right;">28.8207</td></tr></tbody></table></div>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># taking the first chain</span>
-</span></span><span class="line"><span class="cl"><span class="n">c1</span> <span class="o">=</span> <span class="n">chain</span><span class="p">[</span><span class="o">:</span><span class="p">,</span> <span class="o">:</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># Calculating the exponentiated means</span>
-</span></span><span class="line"><span class="cl"><span class="n">b0_exp</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">mean</span><span class="p">(</span><span class="n">c1</span><span class="p">[</span><span class="ss">:alpha</span><span class="p">]))</span>
-</span></span><span class="line"><span class="cl"><span class="n">b1_exp</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">mean</span><span class="p">(</span><span class="n">c1</span><span class="p">[</span><span class="ss">:alcohol</span><span class="p">]))</span>
-</span></span><span class="line"><span class="cl"><span class="n">b2_exp</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">mean</span><span class="p">(</span><span class="n">c1</span><span class="p">[</span><span class="ss">:nomeds</span><span class="p">]))</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">println</span><span class="p">(</span><span class="s">&#34;The exponent of the mean of the weights (or coefficients) are: </span><span class="se">\n</span><span class="s">&#34;</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">println</span><span class="p">(</span><span class="s">&#34;b0: &#34;</span><span class="p">,</span> <span class="n">b0_exp</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">println</span><span class="p">(</span><span class="s">&#34;b1: &#34;</span><span class="p">,</span> <span class="n">b1_exp</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">println</span><span class="p">(</span><span class="s">&#34;b2: &#34;</span><span class="p">,</span> <span class="n">b2_exp</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>The exponent of the mean of the weights (or coefficients) are: 
-
-b0: 0.604415461752317
-b1: 5.658573583760772
-b2: 10.342642711232362
-</code></pre>
-<p>Notice how we are <strong>not</strong> recovering the original $\lambda$ values that were used to create this data set, i.e.:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl">	<span class="n">theta_noalc_nomed</span> <span class="o">=</span> <span class="mi">6</span>
-</span></span><span class="line"><span class="cl">	<span class="n">theta_noalc_med</span> <span class="o">=</span> <span class="mi">1</span>
-</span></span><span class="line"><span class="cl">	<span class="n">theta_alc_nomed</span> <span class="o">=</span> <span class="mi">36</span>
-</span></span><span class="line"><span class="cl">	<span class="n">theta_alc_med</span> <span class="o">=</span> <span class="mi">3</span>
-</span></span></code></pre></div><p>Instead, we are recovering <em>the parameters of the linear function</em>, in other words, $\theta = {\alpha, \beta&rsquo;}$ in the linear relation:</p>
-<p>$$\log(\lambda) = \alpha + \beta_1 x_{alc} + \beta_2 x_{meds}$$</p>
-<p>where $x_{(\cdot)}$ represents the binary variable of whether the subject took alcohol/medicine or not.</p>
-<h2 id="conclusion">Conclusion</h2>
-<p>This tutorial shows how to perform Bayesian inference on <em>discrete</em> data, e.g. the record of how many sneezes per day a group of people had, and classified according to their alcohol and medication consumption.</p>
-<p>In real-world scenarios, we would obviously not know the parameter values, since this is precisely what we want to find out by incorporating whatever we knew about them into what we observed.</p>
-]]></content:encoded>
-    </item>
-    
-    <item>
-      <title>Bayesian Logistic Regression with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</link>
-      <pubDate>Tue, 09 Jan 2024 11:57:07 +0800</pubDate>
-      
-      <guid>http://localhost:1313/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</guid>
-      <description>Applying Turing.jl package in Julia for a probabilistic approach to a classification problem on a real-world dataset.</description>
-      <content:encoded><![CDATA[<hr>
-<h2 id="problem-statement">Problem Statement</h2>
-<p>You are interested in studying the factors that influence the likelihood of heart disease among patients.</p>
-<p>You have a dataset of 303 patients, each with 14 variables: age, sex, chest pain type, resting blood pressure, serum cholesterol, fasting blood sugar, resting electrocardiographic results, maximum heart rate achieved, exercise induced angina, oldpeak, slope, number of major vessels, thalassemia, and diagnosis of heart disease.</p>
-<p>You want to use Bayesian logistic regression to model the probability of heart disease (the outcome variable) as a function of some or all of the other variables (the predictor variables).</p>
-<p>You also want to compare different models and assess their fit and predictive performance.</p>
-<h2 id="bayesian-workflow">Bayesian Workflow</h2>
-<p>For this project, I will try to follow this workflow:</p>
-<ol>
-<li>
-<p>Data exploration: Explore the data using descriptive statistics and visualizations to get a sense of the distribution, range, and correlation of the variables. Identify any outliers, missing values, or potential errors in the data. Transform or standardize the variables if needed.</p>
-</li>
-<li>
-<p>Model specification: Specify a probabilistic model that relates the outcome variable to the predictor variables using a logistic regression equation. Choose appropriate priors for the model parameters, such as normal, student-t, or Cauchy distributions. You can use the <code>brms</code> package in Julia to define and fit Bayesian models using a formula syntax similar to <code>lme4</code>. However, try to use <code>Turing.jl</code></p>
-</li>
-<li>
-<p>Model fitting: Fit the model using a sampling algorithm such as Hamiltonian Monte Carlo (HMC) or No-U-Turn Sampler (NUTS). You can use the <code>DynamicHMC</code> or <code>Turing.jl</code> package in Julia to implement these algorithms. Check the convergence and mixing of the chains using diagnostics such as trace plots, autocorrelation plots, effective sample size, and potential scale reduction factor. You can use the <code>MCMCDiagnostics</code> or the included diagnostics features in <code>Turing.jl</code> package in Julia to compute these diagnostics.</p>
-</li>
-<li>
-<p>Model checking: Check the fit and validity of the model using posterior predictive checks, residual analysis, and sensitivity analysis. You can use the <code>PPCheck</code> package in Julia to perform posterior predictive checks, which compare the observed data to data simulated from the posterior predictive distribution. You can use the <code>BayesianRidgeRegression</code> package in Julia to perform residual analysis, which plots the residuals against the fitted values and the predictor variables. You can use the <code>Sensitivity</code> package in Julia to perform sensitivity analysis, which measures how the posterior distribution changes with respect to the prior distribution or the likelihood function.</p>
-</li>
-</ol>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># import packages</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">CSV</span><span class="p">,</span> <span class="n">Turing</span><span class="p">,</span> <span class="n">DataFrames</span><span class="p">,</span> <span class="n">StatsPlots</span><span class="p">,</span> <span class="n">LaTeXStrings</span><span class="p">,</span> <span class="n">Distributions</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Images</span><span class="p">,</span> <span class="n">ImageIO</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">Random</span><span class="o">:</span> <span class="n">seed!</span>
-</span></span><span class="line"><span class="cl"><span class="n">seed!</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>Random.TaskLocalRNG()
-</code></pre>
-<h2 id="data-exploration">Data Exploration</h2>
-<p>After &ldquo;collecting&rdquo; the data, we may import it and arrange it so we can use it further.</p>
-<p>The data set can be found in this <a href="https://www.kaggle.com/datasets/aavigan/cleveland-clinic-heart-disease-dataset">Kaggle link</a>.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">df</span> <span class="o">=</span> <span class="n">CSV</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s">&#34;data/processed_cleveland.csv&#34;</span><span class="p">,</span> <span class="n">DataFrame</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">map!</span><span class="p">(</span><span class="n">x</span> <span class="o">-&gt;</span> <span class="n">x</span> <span class="o">!=</span> <span class="mi">0</span> <span class="o">?</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">num</span><span class="p">);</span> <span class="c"># make the outcome binary</span>
-</span></span><span class="line"><span class="cl"><span class="n">df</span>
-</span></span></code></pre></div><div><div style = "float: left;"><span>303×14 DataFrame</span></div><div style = "float: right;"><span style = "font-style: italic;">278 rows omitted</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">age</th><th style = "text-align: left;">sex</th><th style = "text-align: left;">cp</th><th style = "text-align: left;">trestbps</th><th style = "text-align: left;">chol</th><th style = "text-align: left;">fbs</th><th style = "text-align: left;">restecg</th><th style = "text-align: left;">thalach</th><th style = "text-align: left;">exang</th><th style = "text-align: left;">oldpeak</th><th style = "text-align: left;">slope</th><th style = "text-align: left;">ca</th><th style = "text-align: left;">thal</th><th style = "text-align: left;">num</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "String1" style = "text-align: left;">String1</th><th title = "String1" style = "text-align: left;">String1</th><th title = "Int64" style = "text-align: left;">Int64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: right;">63</td><td style = "text-align: right;">1</td><td style = "text-align: right;">1</td><td style = "text-align: right;">145</td><td style = "text-align: right;">233</td><td style = "text-align: right;">1</td><td style = "text-align: right;">2</td><td style = "text-align: right;">150</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2.3</td><td style = "text-align: right;">3</td><td style = "text-align: left;">0</td><td style = "text-align: left;">6</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: right;">67</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4</td><td style = "text-align: right;">160</td><td style = "text-align: right;">286</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">108</td><td style = "text-align: right;">1</td><td style = "text-align: right;">1.5</td><td style = "text-align: right;">2</td><td style = "text-align: left;">3</td><td style = "text-align: left;">3</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: right;">67</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4</td><td style = "text-align: right;">120</td><td style = "text-align: right;">229</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">129</td><td style = "text-align: right;">1</td><td style = "text-align: right;">2.6</td><td style = "text-align: right;">2</td><td style = "text-align: left;">2</td><td style = "text-align: left;">7</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: right;">37</td><td style = "text-align: right;">1</td><td style = "text-align: right;">3</td><td style = "text-align: right;">130</td><td style = "text-align: right;">250</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">187</td><td style = "text-align: right;">0</td><td style = "text-align: right;">3.5</td><td style = "text-align: right;">3</td><td style = "text-align: left;">0</td><td style = "text-align: left;">3</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: right;">41</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">130</td><td style = "text-align: right;">204</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">172</td><td style = "text-align: right;">0</td><td style = "text-align: right;">1.4</td><td style = "text-align: right;">1</td><td style = "text-align: left;">0</td><td style = "text-align: left;">3</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: right;">56</td><td style = "text-align: right;">1</td><td style = "text-align: right;">2</td><td style = "text-align: right;">120</td><td style = "text-align: right;">236</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">178</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0.8</td><td style = "text-align: right;">1</td><td style = "text-align: left;">0</td><td style = "text-align: left;">3</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: right;">62</td><td style = "text-align: right;">0</td><td style = "text-align: right;">4</td><td style = "text-align: right;">140</td><td style = "text-align: right;">268</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">160</td><td style = "text-align: right;">0</td><td style = "text-align: right;">3.6</td><td style = "text-align: right;">3</td><td style = "text-align: left;">2</td><td style = "text-align: left;">3</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: right;">57</td><td style = "text-align: right;">0</td><td style = "text-align: right;">4</td><td style = "text-align: right;">120</td><td style = "text-align: right;">354</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">163</td><td style = "text-align: right;">1</td><td style = "text-align: right;">0.6</td><td style = "text-align: right;">1</td><td style = "text-align: left;">0</td><td style = "text-align: left;">3</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: right;">63</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4</td><td style = "text-align: right;">130</td><td style = "text-align: right;">254</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">147</td><td style = "text-align: right;">0</td><td style = "text-align: right;">1.4</td><td style = "text-align: right;">2</td><td style = "text-align: left;">1</td><td style = "text-align: left;">7</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">10</td><td style = "text-align: right;">53</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4</td><td style = "text-align: right;">140</td><td style = "text-align: right;">203</td><td style = "text-align: right;">1</td><td style = "text-align: right;">2</td><td style = "text-align: right;">155</td><td style = "text-align: right;">1</td><td style = "text-align: right;">3.1</td><td style = "text-align: right;">3</td><td style = "text-align: left;">0</td><td style = "text-align: left;">7</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">11</td><td style = "text-align: right;">57</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4</td><td style = "text-align: right;">140</td><td style = "text-align: right;">192</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">148</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0.4</td><td style = "text-align: right;">2</td><td style = "text-align: left;">0</td><td style = "text-align: left;">6</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">12</td><td style = "text-align: right;">56</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">140</td><td style = "text-align: right;">294</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">153</td><td style = "text-align: right;">0</td><td style = "text-align: right;">1.3</td><td style = "text-align: right;">2</td><td style = "text-align: left;">0</td><td style = "text-align: left;">3</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">13</td><td style = "text-align: right;">56</td><td style = "text-align: right;">1</td><td style = "text-align: right;">3</td><td style = "text-align: right;">130</td><td style = "text-align: right;">256</td><td style = "text-align: right;">1</td><td style = "text-align: right;">2</td><td style = "text-align: right;">142</td><td style = "text-align: right;">1</td><td style = "text-align: right;">0.6</td><td style = "text-align: right;">2</td><td style = "text-align: left;">1</td><td style = "text-align: left;">6</td><td style = "text-align: right;">1</td></tr><tr><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td><td style = "text-align: right;">&vellip;</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">292</td><td style = "text-align: right;">55</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">132</td><td style = "text-align: right;">342</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">166</td><td style = "text-align: right;">0</td><td style = "text-align: right;">1.2</td><td style = "text-align: right;">1</td><td style = "text-align: left;">0</td><td style = "text-align: left;">3</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">293</td><td style = "text-align: right;">44</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4</td><td style = "text-align: right;">120</td><td style = "text-align: right;">169</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">144</td><td style = "text-align: right;">1</td><td style = "text-align: right;">2.8</td><td style = "text-align: right;">3</td><td style = "text-align: left;">0</td><td style = "text-align: left;">6</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">294</td><td style = "text-align: right;">63</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4</td><td style = "text-align: right;">140</td><td style = "text-align: right;">187</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">144</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4.0</td><td style = "text-align: right;">1</td><td style = "text-align: left;">2</td><td style = "text-align: left;">7</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">295</td><td style = "text-align: right;">63</td><td style = "text-align: right;">0</td><td style = "text-align: right;">4</td><td style = "text-align: right;">124</td><td style = "text-align: right;">197</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">136</td><td style = "text-align: right;">1</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">2</td><td style = "text-align: left;">0</td><td style = "text-align: left;">3</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">296</td><td style = "text-align: right;">41</td><td style = "text-align: right;">1</td><td style = "text-align: right;">2</td><td style = "text-align: right;">120</td><td style = "text-align: right;">157</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">182</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">1</td><td style = "text-align: left;">0</td><td style = "text-align: left;">3</td><td style = "text-align: right;">0</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">297</td><td style = "text-align: right;">59</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4</td><td style = "text-align: right;">164</td><td style = "text-align: right;">176</td><td style = "text-align: right;">1</td><td style = "text-align: right;">2</td><td style = "text-align: right;">90</td><td style = "text-align: right;">0</td><td style = "text-align: right;">1.0</td><td style = "text-align: right;">2</td><td style = "text-align: left;">2</td><td style = "text-align: left;">6</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">298</td><td style = "text-align: right;">57</td><td style = "text-align: right;">0</td><td style = "text-align: right;">4</td><td style = "text-align: right;">140</td><td style = "text-align: right;">241</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">123</td><td style = "text-align: right;">1</td><td style = "text-align: right;">0.2</td><td style = "text-align: right;">2</td><td style = "text-align: left;">0</td><td style = "text-align: left;">7</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">299</td><td style = "text-align: right;">45</td><td style = "text-align: right;">1</td><td style = "text-align: right;">1</td><td style = "text-align: right;">110</td><td style = "text-align: right;">264</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">132</td><td style = "text-align: right;">0</td><td style = "text-align: right;">1.2</td><td style = "text-align: right;">2</td><td style = "text-align: left;">0</td><td style = "text-align: left;">7</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">300</td><td style = "text-align: right;">68</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4</td><td style = "text-align: right;">144</td><td style = "text-align: right;">193</td><td style = "text-align: right;">1</td><td style = "text-align: right;">0</td><td style = "text-align: right;">141</td><td style = "text-align: right;">0</td><td style = "text-align: right;">3.4</td><td style = "text-align: right;">2</td><td style = "text-align: left;">2</td><td style = "text-align: left;">7</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">301</td><td style = "text-align: right;">57</td><td style = "text-align: right;">1</td><td style = "text-align: right;">4</td><td style = "text-align: right;">130</td><td style = "text-align: right;">131</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">115</td><td style = "text-align: right;">1</td><td style = "text-align: right;">1.2</td><td style = "text-align: right;">2</td><td style = "text-align: left;">1</td><td style = "text-align: left;">7</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">302</td><td style = "text-align: right;">57</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">130</td><td style = "text-align: right;">236</td><td style = "text-align: right;">0</td><td style = "text-align: right;">2</td><td style = "text-align: right;">174</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">2</td><td style = "text-align: left;">1</td><td style = "text-align: left;">3</td><td style = "text-align: right;">1</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">303</td><td style = "text-align: right;">38</td><td style = "text-align: right;">1</td><td style = "text-align: right;">3</td><td style = "text-align: right;">138</td><td style = "text-align: right;">175</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0</td><td style = "text-align: right;">173</td><td style = "text-align: right;">0</td><td style = "text-align: right;">0.0</td><td style = "text-align: right;">1</td><td style = "text-align: left;">?</td><td style = "text-align: left;">3</td><td style = "text-align: right;">0</td></tr></tbody></table></div>
-<p>In the above data frame, the attributes are as follows:</p>
-<table>
-  <thead>
-      <tr>
-          <th style="text-align: center">Variable Name</th>
-          <th style="text-align: center">Role</th>
-          <th style="text-align: center">Type</th>
-          <th style="text-align: center">Demographic</th>
-          <th style="text-align: center">Description</th>
-          <th style="text-align: center">Units</th>
-          <th style="text-align: center">Missing Values</th>
-      </tr>
-  </thead>
-  <tbody>
-      <tr>
-          <td style="text-align: center">age</td>
-          <td style="text-align: center">Feature</td>
-          <td style="text-align: center">Integer</td>
-          <td style="text-align: center">Age</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">years</td>
-          <td style="text-align: center">no</td>
-      </tr>
-      <tr>
-          <td style="text-align: center">sex</td>
-          <td style="text-align: center">Feature</td>
-          <td style="text-align: center">Categorical</td>
-          <td style="text-align: center">Sex</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">no</td>
-      </tr>
-      <tr>
-          <td style="text-align: center">cp</td>
-          <td style="text-align: center">Feature</td>
-          <td style="text-align: center">Categorical</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">no</td>
-      </tr>
-      <tr>
-          <td style="text-align: center">trestbps</td>
-          <td style="text-align: center">Feature</td>
-          <td style="text-align: center">Integer</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">resting blood pressure (on admission to the hospital)</td>
-          <td style="text-align: center">mm Hg</td>
-          <td style="text-align: center">no</td>
-      </tr>
-      <tr>
-          <td style="text-align: center">chol</td>
-          <td style="text-align: center">Feature</td>
-          <td style="text-align: center">Integer</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">serum cholestoral</td>
-          <td style="text-align: center">mg/dl</td>
-          <td style="text-align: center">no</td>
-      </tr>
-      <tr>
-          <td style="text-align: center">fbs</td>
-          <td style="text-align: center">Feature</td>
-          <td style="text-align: center">Categorical</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">fasting blood sugar &gt; 120 mg/dl</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">no</td>
-      </tr>
-      <tr>
-          <td style="text-align: center">restecg</td>
-          <td style="text-align: center">Feature</td>
-          <td style="text-align: center">Categorical</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">no</td>
-      </tr>
-      <tr>
-          <td style="text-align: center">thalach</td>
-          <td style="text-align: center">Feature</td>
-          <td style="text-align: center">Integer</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">maximum heart rate achieved</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">no</td>
-      </tr>
-      <tr>
-          <td style="text-align: center">exang</td>
-          <td style="text-align: center">Feature</td>
-          <td style="text-align: center">Categorical</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">exercise induced angina</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">no</td>
-      </tr>
-      <tr>
-          <td style="text-align: center">oldpeak</td>
-          <td style="text-align: center">Feature</td>
-          <td style="text-align: center">Integer</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">ST depression induced by exercise relative to rest</td>
-          <td style="text-align: center"></td>
-          <td style="text-align: center">no</td>
-      </tr>
-      <tr>
-          <td style="text-align: left"></td>
-          <td style="text-align: left"></td>
-          <td style="text-align: left"></td>
-          <td style="text-align: left"></td>
-          <td style="text-align: left"></td>
-          <td style="text-align: left"></td>
-          <td style="text-align: left"></td>
-      </tr>
-  </tbody>
-</table>
-<p>Complete attribute documentation:</p>
-<pre><code>1. age: age in years
-2. sex: sex (1 = male; 0 = female)
-3. cp: chest pain type
-	- Value 1: typical angina
-	- Value 2: atypical angina
-	- Value 3: non-anginal pain
-	- Value 4: asymptomatic
-4. trestbps: resting blood pressure (in mm Hg on admission to the
-hospital)
-5. chol: serum cholestoral in mg/dl
-6.fbs: fasting blood sugar &gt; 120 mg/dl (1 = true; 0 = false)
-7. restecg: resting electrocardiographic results
-	- Value 0: normal
-	- Value 1: having ST-T wave abnormality (T wave inversions and/or ST elevation or depression of &gt; 0.05 mV)
-	- Value 2: showing probable or definite left ventricular hypertrophy by Estes' criteria
-8. thalach: maximum heart rate achieved
-9. exang: exercise induced angina (1 = yes; 0 = no)
-10. oldpeak: ST depression induced by exercise relative to rest
-11. slope: the slope of the peak exercise ST segment
-	- Value 1: upsloping
-	- Value 2: flat
-	- Value 3: downsloping
-12. ca: number of major vessels (0-3) colored by flourosopy (for calcification of vessels)
-13. thal: results of nuclear stress test (3 = normal; 6 = fixed defect; 7 = reversable defect)
-14. num: target variable representing diagnosis of heart disease (angiographic disease status) in any major vessel
-	- Value 0: &lt; 50% diameter narrowing
-	- Value 1: &gt; 50% diameter narrowing
-</code></pre>
-<h2 id="data-interpretation">Data Interpretation</h2>
-<p>After collecting the data, it has been imported as a Data Frame. Now, to understand what we will do with this exercise, we need to analyze the data by means of Bayesian Logistic Regression.</p>
-<p>With this type of analysis, we can make predictions on (typically) binary outcomes, based on a set of parameters. In this particular case, we are interested in predicting whether a patient will have heart disease based on a set of parameters such as age, chest pain, blood pressure, etc.</p>
-<p>In terms of the data available, we have a set of 303 observations (303 patients) whose symptoms and circumstances have been recorded, and the <strong>outcome</strong> is the heart disease diagnosis. To simplify things, this data set has a binary outcome, i.e. heart disease <em>present/not present</em>.</p>
-<p>Additionally, this study is divided in two parts: first, I will set up the logistic regression model to include only one predictor, i.e., <strong>age</strong>. Afterwards, an analysis will be performed including two or more predictors.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># find the range for the age, to set the plot limits below</span>
-</span></span><span class="line"><span class="cl"><span class="c"># min_age = minimum(df.age)</span>
-</span></span><span class="line"><span class="cl"><span class="n">min_age</span> <span class="o">=</span> <span class="mi">15</span> 
-</span></span><span class="line"><span class="cl"><span class="n">max_age</span> <span class="o">=</span> <span class="mi">85</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># visualize data</span>
-</span></span><span class="line"><span class="cl"><span class="n">p_data</span> <span class="o">=</span> <span class="n">scatter</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">age</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">num</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">legend</span> <span class="o">=</span> <span class="nb">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">xlims</span> <span class="o">=</span> <span class="p">(</span><span class="n">min_age</span><span class="p">,</span> <span class="n">max_age</span><span class="p">),</span>
-</span></span><span class="line"><span class="cl">	<span class="n">color</span> <span class="o">=</span> <span class="ss">:red</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">markersize</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">title</span> <span class="o">=</span> <span class="s">&#34;Probability of Heart Disease&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">xlabel</span> <span class="o">=</span> <span class="s">&#34;Age (years)&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">ylabel</span> <span class="o">=</span> <span class="s">&#34;Probability of Heart Disease&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">widen</span> <span class="o">=</span> <span class="nb">true</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    <span class="n">dpi</span> <span class="o">=</span> <span class="mi">150</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240109_Bayesian_Logistic_Regression/output_7_0.svg" type="" alt="svg"  /></p>
-<h2 id="model-specification">Model Specification</h2>
-<p>In this stage of the workflow, we will specify the Bayesian model and then use <code>Turing.jl</code> to program it in Julia.</p>
-<p>The model I will use for this analysis is a Bayesian Logistic Regression model, which relates the probability of heart disease to a <em>linear combination of the predictor variables</em>, using a logistic function. The model can be written as:</p>
-<p>$$\begin{aligned}
-y_i &amp;\sim Bernoulli(p_i) \\
-p_i &amp;= \frac{1}{1+e^{-\eta_i}} \\
-\eta_i &amp;= \alpha + {\beta_1 x_{i,1}} + {\beta_2 x_{i,2}} + \ldots + {\beta_{13} x_{i,13}} \\
-\alpha &amp;\sim \mathcal{N}(\mu_\alpha,\sigma_\sigma) \\
-\beta_j &amp;\sim \mathcal{N}(\mu_{\beta},\sigma_{\beta}) \\
-\end{aligned}$$</p>
-<p>where $y_i$ is the outcome for the <em>i-th</em> patient, $p_i$ is the probability of heart disease for the <em>i-th</em> patient, $\eta_i$ is the linear predictor for the <em>i-th</em> patient, $\alpha$ and $\beta_j$ are the intercept and coefficient for the <em>j-th</em> predictor variable, respectively, and $x_{ij}$ is the value of the <em>j-th</em> predictor variable for the <em>i-th</em> patient.</p>
-<p>The assumptions that I am making are:</p>
-<ol>
-<li>The outcome variable follows a Bernoulli distribution, i.e. $y_i \sim Bernoulli(p_i)$, which is appropriate for binary outcomes</li>
-<li>The predictor variables are linearly related to the log-odds of the outcome variable, i.e. $\log(\frac{p}{1-p})$ which is a common assumption for logistic regression models</li>
-<li>The prior distributions for the model parameters are uniform, which are weakly informative and reflect my prior beliefs about the plausible range of the parameters</li>
-</ol>
-<p>Regarding point (2):</p>
-<p>That statement means that the log-odds of the outcome variable (the log of the odds ratio) can be expressed as a linear function of the predictor variables. Mathematically, this can be written as:</p>
-<p>$$\log(\frac{p}{1-p}) = \alpha + \beta_1 x_1 + \beta_2 x_2 + \ldots + \beta_k x_k$$</p>
-<p>where $p$ is the probability of the outcome variable being 1, $x_1, x_2, \ldots, x_k$ are the predictor variables, and $\alpha, \beta_1, \beta_2, \ldots, \beta_k$ are the coefficients (parameters).</p>
-<p>This assumption implies that the effect of each predictor variable on the log-odds of the outcome variable is contant, regardless of the values of the other predictor variables. It also implies that the relationship between the predictor variables and the probability of the outcome variable is non-linear, as the probability is obtained by applying the inverse of the log-odds function, which is the logistic function:</p>
-<p>$$p = \frac{1}{1+e^{-(\alpha + \beta_1 x_1 + \beta_2 x_2 + \ldots + \beta_k x_k)}}$$</p>
-<p>The logistic function is an S-shaped curve that maps any real number to a value between 0 and 1. It has the property that as the linear predictor increases, the probability approaches 1, and as the linear predictor decreases, the probability approaches 0.</p>
-<h3 id="model-specification-using-turingjl">Model Specification Using <code>Turing.jl</code></h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># define the Bayesian model</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="nd">@model</span> <span class="k">function</span> <span class="n">logit_model</span><span class="p">(</span><span class="n">predictors</span><span class="p">,</span> <span class="n">disease</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">	<span class="c"># priors</span>
-</span></span><span class="line"><span class="cl">	<span class="n">α</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">10.0</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="n">β</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span><span class="mf">10.0</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">	<span class="c"># likelihood</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">	<span class="n">η</span> <span class="o">=</span> <span class="n">α</span> <span class="o">.+</span> <span class="n">β</span><span class="o">.*</span><span class="n">predictors</span>
-</span></span><span class="line"><span class="cl">	<span class="n">p</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">./</span> <span class="p">(</span><span class="mi">1</span> <span class="o">.+</span> <span class="n">exp</span><span class="o">.</span><span class="p">(</span><span class="o">-</span><span class="n">η</span><span class="p">))</span>     <span class="c"># remember to include the &#34;.&#34;!</span>
-</span></span><span class="line"><span class="cl">	<span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="n">eachindex</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">		<span class="n">disease</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">~</span> <span class="n">Bernoulli</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">	<span class="k">end</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>logit_model (generic function with 2 methods)
-</code></pre>
-<h4 id="crank-up-the-bayes">Crank up the Bayes!</h4>
-<p>Run the model using <code>sample(model, sampler, opt_argument, samples, chains)</code></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># infer posterior probability</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">logit_model</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">age</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">num</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">sampler</span> <span class="o">=</span> <span class="n">NUTS</span><span class="p">()</span>
-</span></span><span class="line"><span class="cl"><span class="n">samples</span> <span class="o">=</span> <span class="mi">1_000</span>
-</span></span><span class="line"><span class="cl"><span class="n">num_chains</span> <span class="o">=</span> <span class="mi">8</span> 		<span class="c"># set the number of chains</span>
-</span></span><span class="line"><span class="cl"><span class="n">chain</span> <span class="o">=</span> <span class="n">sample</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">sampler</span><span class="p">,</span> <span class="n">MCMCThreads</span><span class="p">(),</span> <span class="n">samples</span><span class="p">,</span> <span class="n">num_chains</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.025
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.0125
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.025
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.0125
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.025
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.05
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.025
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.025
-[32mSampling (8 threads): 100%|█████████████████████████████| Time: 0:00:01[39m
-
-
-
-
-
-Chains MCMC chain (1000×14×8 Array{Float64, 3}):
-
-Iterations        = 501:1:1500
-Number of chains  = 8
-Samples per chain = 1000
-Wall duration     = 13.18 seconds
-Compute duration  = 100.1 seconds
-parameters        = α, β
-internals         = lp, n_steps, is_accept, acceptance_rate, log_density, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size
-
-Summary Statistics
- [1m parameters [0m [1m    mean [0m [1m     std [0m [1m    mcse [0m [1m  ess_bulk [0m [1m  ess_tail [0m [1m    rhat [0m [1m[0m ⋯
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m   Float64 [0m [90m   Float64 [0m [90m Float64 [0m [90m[0m ⋯
-
-           α   -3.0326    0.7453    0.0210   1242.6057   1246.3034    1.0043   ⋯
-           β    0.0524    0.0134    0.0004   1224.4182   1259.7727    1.0037   ⋯
-[36m                                                                1 column omitted[0m
-
-Quantiles
- [1m parameters [0m [1m    2.5% [0m [1m   25.0% [0m [1m   50.0% [0m [1m   75.0% [0m [1m   97.5% [0m
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m
-
-           α   -4.4814   -3.5432   -3.0127   -2.5183   -1.5973
-           β    0.0264    0.0432    0.0521    0.0617    0.0789
-</code></pre>
-<p><strong>NOTE</strong>: The above routine employs the <code>MCMCThreads()</code> method to sample multiple chains. However, to implement this, one needs to change the environment variables for the number of threads Julia can use. These two discussions might shed some light as to how to achieve this:</p>
-<ol>
-<li><a href="https://docs.julialang.org/en/v1/manual/multi-threading/#man-multithreading">https://docs.julialang.org/en/v1/manual/multi-threading/#man-multithreading</a></li>
-<li><a href="https://discourse.julialang.org/t/julia-num-threads-in-vs-code-windows-10-wsl/28794">https://discourse.julialang.org/t/julia-num-threads-in-vs-code-windows-10-wsl/28794</a></li>
-</ol>
-<p>Of course, if you don&rsquo;t want to bother, then just change the last two functional lines in the cell above so that they read:</p>
-<pre><code># set number of chains - comment this out:
-# num_chains = 8
-
-# crank up the Bayes! - delete MCMCThreads() and num_chains
-chain = sample(model, sampler, samples)
-</code></pre>
-<h4 id="plot-the-mcmc-diagnostics">Plot the MCMC Diagnostics</h4>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">plot</span><span class="p">(</span><span class="n">chain</span><span class="p">,</span> <span class="n">dpi</span> <span class="o">=</span> <span class="mi">150</span><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240109_Bayesian_Logistic_Regression/output_15_0.svg" type="" alt="png"  /></p>
-<h4 id="get-the-summary-statistics">Get the Summary Statistics</h4>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">summarystats</span><span class="p">(</span><span class="n">chain</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>Summary Statistics
- [1m parameters [0m [1m    mean [0m [1m     std [0m [1m    mcse [0m [1m  ess_bulk [0m [1m  ess_tail [0m [1m    rhat [0m [1m[0m ⋯
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m   Float64 [0m [90m   Float64 [0m [90m Float64 [0m [90m[0m ⋯
-
-           α   -3.0326    0.7453    0.0210   1242.6057   1246.3034    1.0043   ⋯
-           β    0.0524    0.0134    0.0004   1224.4182   1259.7727    1.0037   ⋯
-[36m                                                                1 column omitted[0m
-</code></pre>
-<h3 id="plot-and-interpret-the-results">Plot and Interpret the Results</h3>
-<p>Ok, how do we interpret the results from a Bayesian approach? Let&rsquo;s start by plotting the results. This will help us understand not only the results, but really grasp the power of a Bayesian model in action.</p>
-<p>From a frequentist or a machine learning approach, we would expect to find a function that models the data the best possible way, i.e. fit a model. If we were to visualize it, we would see one single sigmoid curve trying its best to explain the data.</p>
-<p>How about this chart here, though? This chart is a collection of possible outcomes given that the <em>parameters</em> $\alpha$ and $\beta$ in this case, are modeled as random variables with some probability distribution. Therefore, there is an uncertainty associated with them. This uncertainty is naturally <em>propagated</em> onto the sigmoid function. Therefore, there is also an uncertainty associated with that sigmoid curve that we are trying to model.</p>
-<p>Again, below we can see a collection of possible outcomes given the parameter sample space. There is a darker region where most sigmoid functions turned out, and these tend to be the most probable sigmoid functions, or, in other words, these sigmoid functions are the most probable functions that could fit the data, considering the distributions of the parameters too!</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="kt">Int</span><span class="p">(</span><span class="n">samples</span><span class="o">/</span><span class="mi">10</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>100
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">x_line</span> <span class="o">=</span> <span class="mi">15</span><span class="o">:</span><span class="mi">1</span><span class="o">:</span><span class="n">max_age</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">samples</span>
-</span></span><span class="line"><span class="cl">    <span class="n">b</span> <span class="o">=</span> <span class="n">chain</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">	<span class="n">m</span> <span class="o">=</span> <span class="n">chain</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">	<span class="n">line</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">=</span> <span class="n">m</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span><span class="n">b</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">	<span class="n">p</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">line</span><span class="p">(</span><span class="n">x</span><span class="p">))</span> <span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">	<span class="n">plot!</span><span class="p">(</span><span class="n">p_data</span><span class="p">,</span> <span class="n">x_line</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">    	<span class="n">legend</span> <span class="o">=</span> <span class="nb">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">		<span class="n">linewidth</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span> <span class="ss">:blue</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.02</span><span class="p">,</span> <span class="n">dpi</span> <span class="o">=</span> <span class="mi">150</span>
-</span></span><span class="line"><span class="cl">	<span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">p_data</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240109_Bayesian_Logistic_Regression/output_20_0.svg" type="" alt="png"  /></p>
-<h3 id="making-predictions">Making Predictions</h3>
-<p>So why go through all this trouble, you might be asking. Well, one of the reasons we want to use probabilistic models is, first, to make predictions. But I would go further than that: these models are useful when making informed decisions. Let&rsquo;s try this out.</p>
-<p>Let&rsquo;s make predictions for different arbitrary ages (50, 60, 70, 80, 20):</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">new_Age</span> <span class="o">=</span> <span class="p">[</span><span class="mi">50</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">20</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="n">p_disease</span> <span class="o">=</span> <span class="n">fill</span><span class="p">(</span><span class="nb">missing</span><span class="p">,</span> <span class="n">length</span><span class="p">(</span><span class="n">new_Age</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl"><span class="n">predictions</span> <span class="o">=</span> <span class="n">predict</span><span class="p">(</span><span class="n">logit_model</span><span class="p">(</span><span class="n">new_Age</span><span class="p">,</span> <span class="n">p_disease</span><span class="p">),</span> <span class="n">chain</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">summarystats</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>Summary Statistics
- [1m parameters [0m [1m    mean [0m [1m     std [0m [1m    mcse [0m [1m  ess_bulk [0m [1m ess_tail [0m [1m    rhat [0m [1m [0m ⋯
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m   Float64 [0m [90m  Float64 [0m [90m Float64 [0m [90m [0m ⋯
-
-  disease[1]    0.3855    0.4867    0.0055   7711.3762        NaN    0.9998    ⋯
-  disease[2]    0.5258    0.4994    0.0055   8284.1301        NaN    0.9998    ⋯
-  disease[3]    0.6432    0.4791    0.0056   7441.4457        NaN    1.0002    ⋯
-  disease[4]    0.7555    0.4298    0.0050   7352.4368        NaN    0.9998    ⋯
-  disease[5]    0.1224    0.3277    0.0039   7016.6404        NaN    1.0004    ⋯
-[36m                                                                1 column omitted[0m
-</code></pre>
-<h4 id="interpreting-the-predictions">Interpreting the predictions</h4>
-<p>The last operations make predictions of heart diseased based <em>on age only</em>. What the predictions mean is that, given the data, the probability distribution of an individual of age 50 to have heart disease has a mean of 0.379, and a standard deviation of 0.485 (this is highly uncertain, by the way).</p>
-<p>Similarly, a 20-year-old individual has a probability with a mean of 0.13 and standard deviation of 0.336 of having heart disease.</p>
-<p>These statistics are extremely powerful when you are trying to make decisions, such as when diagnosing Heart Disease. It stands to reason that, if you were a physician, you want to know what your model says might be wrong (or not) with your patient, but you also want to know how much you can trust that prediction.</p>
-<p>If your model classifies Patient X as having heart disease, you would probably want to know how sure you are of this. And this certainty comes partially from&hellip; you guessed it: your priors <em>and</em> the data.</p>
-<p>In the plot below, we can see the where the predictions lie. Note that these probabilities are on a continuum given by the sigmoid function. But we want our final decision to be a yes or a no. To do that, we need to set a decision threshold.</p>
-<p>We will do that at the end of the next section.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">length</span><span class="p">(</span><span class="n">new_Age</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">pred_mean</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span><span class="n">predictions</span><span class="p">[</span><span class="o">:</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="mi">1</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">    <span class="n">pred_plot</span> <span class="o">=</span> <span class="n">scatter!</span><span class="p">(</span><span class="n">p_data</span><span class="p">,</span> <span class="p">(</span><span class="n">new_Age</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">pred_mean</span><span class="p">),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">p_data</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240109_Bayesian_Logistic_Regression/output_24_0.svg" type="" alt="png"  /></p>
-<h2 id="model-specification-using-multiple-predictors">Model Specification Using Multiple Predictors</h2>
-<h3 id="some-data-cleaning">Some Data Cleaning</h3>
-<p>In this part, I am using the <code>Turing.jl</code> documentation tutorial found in <a href="https://turinglang.org/dev/tutorials/02-logistic-regression/">https://turinglang.org/dev/tutorials/02-logistic-regression/</a>.</p>
-<p>In the tutorial, they quite rightly incorporate a train/test split, and data normalization, which is the recommended practice. I didn&rsquo;t do it in the first part of this tutorial to keep things simple!</p>
-<p>Here is how they handle the split and the data normalization using <code>MLUtils</code>.</p>
-<pre><code>function split_data(df, target; at=0.70)
-    shuffled = shuffleobs(df)
-    return trainset, testset = stratifiedobs(row -&gt; row[target], shuffled; p=at)
-end
-
-features = [:StudentNum, :Balance, :Income]
-numerics = [:Balance, :Income]
-target = :DefaultNum
-
-trainset, testset = split_data(data, target; at=0.05)
-for feature in numerics
-    μ, σ = rescale!(trainset[!, feature]; obsdim=1)
-    rescale!(testset[!, feature], μ, σ; obsdim=1)
-end
-
-# Turing requires data in matrix form, not dataframe
-train = Matrix(trainset[:, features])
-test = Matrix(testset[:, features])
-train_label = trainset[:, target]
-test_label = testset[:, target];
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">MLDataUtils</span><span class="o">:</span> <span class="n">shuffleobs</span><span class="p">,</span> <span class="n">stratifiedobs</span><span class="p">,</span> <span class="n">rescale!</span>
-</span></span><span class="line"><span class="cl"><span class="k">using</span> <span class="n">StatsFuns</span> <span class="c"># we introduce this package so we can later call the </span>
-</span></span><span class="line"><span class="cl">                <span class="c"># logistic function directly instead of defining it manually as before</span>
-</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">function</span> <span class="n">split_data</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">target</span><span class="p">;</span> <span class="n">at</span><span class="o">=</span><span class="mf">0.70</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="n">shuffled</span> <span class="o">=</span> <span class="n">shuffleobs</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="n">trainset</span><span class="p">,</span> <span class="n">testset</span> <span class="o">=</span> <span class="n">stratifiedobs</span><span class="p">(</span><span class="n">row</span> <span class="o">-&gt;</span> <span class="n">row</span><span class="p">[</span><span class="n">target</span><span class="p">],</span> <span class="n">shuffled</span><span class="p">;</span> <span class="n">p</span><span class="o">=</span><span class="n">at</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">	
-</span></span><span class="line"><span class="cl"><span class="n">features</span> <span class="o">=</span> <span class="p">[</span><span class="ss">:age</span><span class="p">,</span> <span class="ss">:cp</span><span class="p">,</span> <span class="ss">:chol</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="n">target</span> <span class="o">=</span> <span class="ss">:num</span>
-</span></span><span class="line"><span class="cl">	
-</span></span><span class="line"><span class="cl"><span class="n">trainset</span><span class="p">,</span> <span class="n">testset</span> <span class="o">=</span> <span class="n">split_data</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">target</span><span class="p">;)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># convert the feature columns to float64 to ensure compatibility with rescale!</span>
-</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">feature</span> <span class="k">in</span> <span class="n">features</span>
-</span></span><span class="line"><span class="cl">    <span class="n">df</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="n">feature</span><span class="p">]</span> <span class="o">=</span> <span class="n">float</span><span class="o">.</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="n">feature</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">	
-</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">feature</span> <span class="k">in</span> <span class="n">features</span>
-</span></span><span class="line"><span class="cl">    <span class="n">μ</span><span class="p">,</span> <span class="n">σ</span> <span class="o">=</span> <span class="n">rescale!</span><span class="p">(</span><span class="n">trainset</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="n">feature</span><span class="p">];</span> <span class="n">obsdim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">    <span class="n">rescale!</span><span class="p">(</span><span class="n">testset</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="n">feature</span><span class="p">],</span> <span class="n">μ</span><span class="p">,</span> <span class="n">σ</span><span class="p">;</span> <span class="n">obsdim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span><span class="line"><span class="cl">	
-</span></span><span class="line"><span class="cl"><span class="c"># Turing requires data in matrix form, not dataframe</span>
-</span></span><span class="line"><span class="cl"><span class="n">train</span> <span class="o">=</span> <span class="kt">Matrix</span><span class="p">(</span><span class="n">trainset</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="n">features</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl"><span class="n">test</span> <span class="o">=</span> <span class="kt">Matrix</span><span class="p">(</span><span class="n">testset</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="n">features</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl"><span class="n">train_label</span> <span class="o">=</span> <span class="n">trainset</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="n">target</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="n">test_label</span> <span class="o">=</span> <span class="n">testset</span><span class="p">[</span><span class="o">!</span><span class="p">,</span> <span class="n">target</span><span class="p">];</span>
-</span></span></code></pre></div><h3 id="inference">Inference</h3>
-<p>Now that our data is formatted, we can perform our Bayesian logistic regression with multiple predictors: using chest pain (cp), age (age), resting bloodpressure (tresttbps) and cholesterol (chol) levels.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="nd">@model</span> <span class="k">function</span> <span class="n">logreg_multi</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">	<span class="c"># priors</span>
-</span></span><span class="line"><span class="cl">	<span class="n">intercept</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="n">age</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="n">cp</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="n">chol</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">10.0</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">	<span class="n">n</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">size</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	
-</span></span><span class="line"><span class="cl">	<span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">n</span>
-</span></span><span class="line"><span class="cl">		<span class="c"># call the logistic function directly, instead of manually</span>
-</span></span><span class="line"><span class="cl">		<span class="n">v</span> <span class="o">=</span> <span class="n">logistic</span><span class="p">(</span><span class="n">intercept</span> <span class="o">+</span> <span class="n">age</span><span class="o">*</span><span class="n">X</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">cp</span><span class="o">*</span><span class="n">X</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">chol</span><span class="o">*</span><span class="n">X</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span>
-</span></span><span class="line"><span class="cl">		<span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">~</span> <span class="n">Bernoulli</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="k">end</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>logreg_multi (generic function with 2 methods)
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">X</span> <span class="o">=</span> <span class="n">train</span>
-</span></span><span class="line"><span class="cl"><span class="n">y</span> <span class="o">=</span> <span class="n">train_label</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">println</span><span class="p">(</span><span class="n">size</span><span class="p">(</span><span class="n">train</span><span class="p">),</span> <span class="n">size</span><span class="p">(</span><span class="n">test</span><span class="p">))</span>
-</span></span></code></pre></div><pre><code>(212, 3)(91, 3)
-</code></pre>
-<p>Now we build the model and create the chain:</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">model_multi</span> <span class="o">=</span> <span class="n">logreg_multi</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">chain_multi</span> <span class="o">=</span> <span class="n">sample</span><span class="p">(</span><span class="n">model_multi</span><span class="p">,</span> <span class="n">NUTS</span><span class="p">(),</span> <span class="n">MCMCThreads</span><span class="p">(),</span> <span class="mi">2_000</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span> <span class="c"># select 2000 samples directly</span>
-</span></span></code></pre></div><pre><code>[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 1.6
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.8
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.8
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.8
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.8
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 1.6
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 0.8
-[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 1.6
-
-
-
-
-
-Chains MCMC chain (2000×16×8 Array{Float64, 3}):
-
-Iterations        = 1001:1:3000
-Number of chains  = 8
-Samples per chain = 2000
-Wall duration     = 11.32 seconds
-Compute duration  = 87.27 seconds
-parameters        = intercept, age, cp, chol
-internals         = lp, n_steps, is_accept, acceptance_rate, log_density, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size
-
-Summary Statistics
- [1m parameters [0m [1m    mean [0m [1m     std [0m [1m    mcse [0m [1m   ess_bulk [0m [1m   ess_tail [0m [1m    rhat[0m ⋯
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m    Float64 [0m [90m    Float64 [0m [90m Float64[0m ⋯
-
-   intercept   -0.2821    0.1647    0.0012   20113.9419   13042.8456    1.0003 ⋯
-         age    0.6003    0.1760    0.0013   18327.5449   12926.7418    1.0001 ⋯
-          cp    1.0699    0.1922    0.0014   19583.1899   13534.2405    0.9999 ⋯
-        chol   -0.0073    0.1641    0.0012   18280.4944   12242.8280    1.0004 ⋯
-[36m                                                                1 column omitted[0m
-
-Quantiles
- [1m parameters [0m [1m    2.5% [0m [1m   25.0% [0m [1m   50.0% [0m [1m   75.0% [0m [1m   97.5% [0m
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m
-
-   intercept   -0.6118   -0.3923   -0.2817   -0.1711    0.0388
-         age    0.2645    0.4792    0.5964    0.7178    0.9575
-          cp    0.7106    0.9372    1.0636    1.1963    1.4603
-        chol   -0.3283   -0.1177   -0.0080    0.1025    0.3151
-</code></pre>
-<h3 id="plot-the-mcmc-diagnostics-1">Plot the MCMC Diagnostics</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">plot</span><span class="p">(</span><span class="n">chain_multi</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20240109_Bayesian_Logistic_Regression/output_34_0.svg" type="" alt="png"  /></p>
-<h3 id="summary-statistics">Summary Statistics</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">summarystats</span><span class="p">(</span><span class="n">chain_multi</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>Summary Statistics
- [1m parameters [0m [1m    mean [0m [1m     std [0m [1m    mcse [0m [1m   ess_bulk [0m [1m   ess_tail [0m [1m    rhat[0m ⋯
- [90m     Symbol [0m [90m Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m    Float64 [0m [90m    Float64 [0m [90m Float64[0m ⋯
-
-   intercept   -0.2821    0.1647    0.0012   20113.9419   13042.8456    1.0003 ⋯
-         age    0.6003    0.1760    0.0013   18327.5449   12926.7418    1.0001 ⋯
-          cp    1.0699    0.1922    0.0014   19583.1899   13534.2405    0.9999 ⋯
-        chol   -0.0073    0.1641    0.0012   18280.4944   12242.8280    1.0004 ⋯
-[36m                                                                1 column omitted[0m
-</code></pre>
-<h2 id="thank-you">Thank you!</h2>
-<p>And that concludes this little tutorial showcasing the power of a Bayesian model and the fun of using Julia. Thank you for stopping by!</p>
-<p>Victor Flores</p>
-]]></content:encoded>
-    </item>
-    
-    <item>
-      <title>Bayesian Linear Regression with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</link>
-      <pubDate>Fri, 10 Nov 2023 14:53:29 +0800</pubDate>
-      
-      <guid>http://localhost:1313/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</guid>
-      <description>Learn the basics of Bayesian linear regression using Julia and Turing.jl. This tutorial covers model formulation, implementation, and interpretation through a practical example.</description>
-      <content:encoded><![CDATA[<hr>
-<h2 id="finding-a-linear-relationship-between-height-and-weight-using-bayesian-methods">Finding a Linear Relationship Between Height and Weight Using Bayesian Methods</h2>
-<h3 id="problem-statement">Problem Statement</h3>
-<p>You have some data on the relationship between the height and weight of some people, and you want to fit a linear model of the form:</p>
-<p>$$y = \alpha + \beta x + \varepsilon$$</p>
-<p>where $y$ is the weight, $x$ is the height, $\alpha$ is the intercept, $\beta$ is the slope, and $\varepsilon$ is the error term. You want to use Bayesian inference to estimate the posterior distributions of $\alpha$ and $\beta$ given the data and some prior assumptions. You also want to use probabilistic programming to implement the Bayesian model and perform inference using a package like <code>Turing.jl</code>.</p>
-<p>Your task is to write the code in Julia that can generate some synthetic data (or use an existing data set), define the Bayesian linear regression model, and sample from the posterior distributions using Hamiltonian Monte Carlo (HMC).</p>
-<h6 id="credit">Credit</h6>
-<p>This exercise is heavily inspired, and mostly taken from, the doggo&rsquo;s tutorial. Please visit his <a href="https://www.youtube.com/@doggodotjl">Youtube channel here</a>, it&rsquo;s an amazing starting point for Julia programming!</p>
-<h3 id="import-the-necessary-packages">Import the Necessary Packages</h3>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="k">using</span> <span class="n">LinearAlgebra</span><span class="p">,</span> <span class="n">Turing</span><span class="p">,</span> <span class="n">CSV</span><span class="p">,</span> <span class="n">DataFrames</span><span class="p">,</span> <span class="n">Plots</span><span class="p">,</span> <span class="n">StatsPlots</span><span class="p">,</span> <span class="n">LaTeXStrings</span>
-</span></span></code></pre></div><h3 id="bayesian-workflow">Bayesian Workflow</h3>
-<p>For this exercise, I will implement the following workflow:</p>
-<ul>
-<li>Collect data: this will be implemented by downloading the relevant data</li>
-<li>Build a Bayesian model: will use <code>Turing.jl</code> to build the model</li>
-<li>Infer the posterior distributions of the parameters $\alpha$ and $\beta$</li>
-<li>Evaluate the fit of the model</li>
-</ul>
-<h4 id="collecting-the-data">Collecting the data</h4>
-<p>The data to be analyzed will be the height vs. weight data from:
-<a href="https://www.kaggle.com/datasets/burnoutminer/heights-and-weights-dataset">https://www.kaggle.com/datasets/burnoutminer/heights-and-weights-dataset</a>.</p>
-<p>Since the dataset is too large, we will select only the first 1000 entries.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># collect data</span>
-</span></span><span class="line"><span class="cl"><span class="c"># this data set was downloaded from kaggle:</span>
-</span></span><span class="line"><span class="cl"><span class="c"># https://www.kaggle.com/datasets/burnoutminer/heights-and-weights-dataset</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">df</span> <span class="o">=</span> <span class="n">CSV</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">joinpath</span><span class="p">(</span><span class="s">&#34;data&#34;</span><span class="p">,</span> <span class="s">&#34;SOCR-HeightWeight.csv&#34;</span><span class="p">),</span> <span class="n">DataFrame</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="c"># select only 100 entries</span>
-</span></span><span class="line"><span class="cl"><span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="mi">1</span><span class="o">:</span><span class="mi">1000</span><span class="p">,</span> <span class="o">:</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">first</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
-</span></span></code></pre></div><div><div style = "float: left;"><span>5×3 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">Index</th><th style = "text-align: left;">Height(Inches)</th><th style = "text-align: left;">Weight(Pounds)</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: right;">1</td><td style = "text-align: right;">65.7833</td><td style = "text-align: right;">112.993</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: right;">2</td><td style = "text-align: right;">71.5152</td><td style = "text-align: right;">136.487</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: right;">3</td><td style = "text-align: right;">69.3987</td><td style = "text-align: right;">153.027</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: right;">4</td><td style = "text-align: right;">68.2166</td><td style = "text-align: right;">142.335</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: right;">5</td><td style = "text-align: right;">67.7878</td><td style = "text-align: right;">144.297</td></tr></tbody></table></div>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># change the column headers for easier access</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">colnames</span> <span class="o">=</span> <span class="p">[</span><span class="s">&#34;index&#34;</span><span class="p">,</span><span class="s">&#34;height&#34;</span><span class="p">,</span><span class="s">&#34;weight&#34;</span><span class="p">];</span> <span class="n">rename!</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="kt">Symbol</span><span class="o">.</span><span class="p">(</span><span class="n">colnames</span><span class="p">))</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">first</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
-</span></span></code></pre></div><div><div style = "float: left;"><span>5×3 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "header"><th class = "rowNumber" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">index</th><th style = "text-align: left;">height</th><th style = "text-align: left;">weight</th></tr><tr class = "subheader headerLastRow"><th class = "rowNumber" style = "font-weight: bold; text-align: right;"></th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Float64" style = "text-align: left;">Float64</th><th title = "Float64" style = "text-align: left;">Float64</th></tr></thead><tbody><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: right;">1</td><td style = "text-align: right;">65.7833</td><td style = "text-align: right;">112.993</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: right;">2</td><td style = "text-align: right;">71.5152</td><td style = "text-align: right;">136.487</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: right;">3</td><td style = "text-align: right;">69.3987</td><td style = "text-align: right;">153.027</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: right;">4</td><td style = "text-align: right;">68.2166</td><td style = "text-align: right;">142.335</td></tr><tr><td class = "rowNumber" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: right;">5</td><td style = "text-align: right;">67.7878</td><td style = "text-align: right;">144.297</td></tr></tbody></table></div>
-<h4 id="visualizing-the-data">Visualizing the Data</h4>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">plot_data</span> <span class="o">=</span> <span class="n">scatter</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">height</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">legend</span> <span class="o">=</span> <span class="nb">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">title</span> <span class="o">=</span> <span class="s">&#34;Height vs. Weight&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">xlabel</span> <span class="o">=</span> <span class="s">&#34;Height (in)&#34;</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">	<span class="n">ylabel</span> <span class="o">=</span> <span class="s">&#34;Weight (lb)&#34;</span>
-</span></span><span class="line"><span class="cl"><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20231110_Bayesian_Linear_Regression_Julia/output_9_0.svg" type="" alt="svg"  /></p>
-<h4 id="building-a-bayesian-model-with-turingjl">Building a Bayesian model with <code>Turing.jl</code>.</h4>
-<p>First, we assume that the weight is a variable dependent on the height. Thus, we can express the Bayesian model as:</p>
-<p>$$y\sim N(\alpha + \beta^{T}\mathbf{X}, \sigma^2)$$</p>
-<p>The above means that we assume that the data follows a normal distribution (in this case, a multivariate normal distribution), whose standard deviation is σ and its mean is the linear relationship $\alpha + \beta^{T}\mathbf{X}$.</p>
-<p>Next, we need to assign priors to the variables $\alpha$, $\beta$ and $\sigma^2$. The latter is a measure of the uncertainty in <em>the model</em>.</p>
-<p>So, the priors will be assigned as follows:</p>
-<p>$$\alpha \sim N(0,10)$$
-$$\beta \sim U(0,50)$$
-$$\sigma^{2} \sim TN(0,100;0,\infty)$$</p>
-<p>The last distribution is a <em>truncated normal distribution</em> bounded from 0 to $\infty$.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="nd">@model</span> <span class="k">function</span> <span class="n">blr</span><span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">	<span class="c"># priors:</span>
-</span></span><span class="line"><span class="cl">	<span class="n">α</span> <span class="o">~</span> <span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">10</span><span class="p">)</span> <span class="c"># intercept</span>
-</span></span><span class="line"><span class="cl">	<span class="n">β</span> <span class="o">~</span> <span class="n">Uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">50</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">	<span class="n">σ</span> <span class="o">~</span> <span class="n">truncated</span><span class="p">(</span><span class="n">Normal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">);</span> <span class="n">lower</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c"># variance standard distribution</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">	<span class="c"># likelihood</span>
-</span></span><span class="line"><span class="cl">	<span class="c"># the likelihood in this case means that I assume that the data follows a</span>
-</span></span><span class="line"><span class="cl">	<span class="c"># multivariate normal distribution, whose uncertainty is σ, and its mean is the linear relationship:</span>
-</span></span><span class="line"><span class="cl">	<span class="n">avg_weight</span> <span class="o">=</span> <span class="n">α</span> <span class="o">.+</span> <span class="p">(</span><span class="n">β</span><span class="o">.*</span><span class="n">height</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl">	<span class="c"># build the model</span>
-</span></span><span class="line"><span class="cl">	<span class="n">weight</span> <span class="o">~</span> <span class="n">MvNormal</span><span class="p">(</span><span class="n">avg_weight</span><span class="p">,</span> <span class="n">σ</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>
-</span></span></code></pre></div><pre><code>blr (generic function with 2 methods)
-</code></pre>
-<p>The next step is to perform Bayesian inference. <em>Crank up the Bayes!</em></p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># crank up the bayes!</span>
-</span></span><span class="line"><span class="cl"><span class="n">model</span> <span class="o">=</span> <span class="n">blr</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">height</span><span class="p">,</span> <span class="n">df</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="n">samples</span> <span class="o">=</span> <span class="mi">1000</span>
-</span></span><span class="line"><span class="cl"><span class="n">chain</span> <span class="o">=</span> <span class="n">sample</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">NUTS</span><span class="p">(),</span> <span class="n">samples</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>[36m[1m┌ [22m[39m[36m[1mInfo: [22m[39mFound initial step size
-[36m[1m└ [22m[39m  ϵ = 9.765625e-5
-[32mSampling: 100%|█████████████████████████████████████████| Time: 0:00:11[39m9m
-
-
-
-
-
-Chains MCMC chain (1000×15×1 Array{Float64, 3}):
-
-Iterations        = 501:1:1500
-Number of chains  = 1
-Samples per chain = 1000
-Wall duration     = 31.4 seconds
-Compute duration  = 31.4 seconds
-parameters        = α, β, σ
-internals         = lp, n_steps, is_accept, acceptance_rate, log_density, hamiltonian_energy, hamiltonian_energy_error, max_hamiltonian_energy_error, tree_depth, numerical_error, step_size, nom_step_size
-
-Summary Statistics
- [1m parameters [0m [1m     mean [0m [1m     std [0m [1m    mcse [0m [1m ess_bulk [0m [1m ess_tail [0m [1m    rhat [0m [1m [0m ⋯
- [90m     Symbol [0m [90m  Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m  Float64 [0m [90m  Float64 [0m [90m Float64 [0m [90m [0m ⋯
-
-           α   -34.8414    7.6414    0.4117   344.5155   365.1189    1.0038    ⋯
-           β     2.3859    0.1124    0.0060   345.5269   345.0618    1.0039    ⋯
-           σ    10.3030    0.2239    0.0100   509.4680   389.9078    1.0016    ⋯
-[36m                                                                1 column omitted[0m
-
-Quantiles
- [1m parameters [0m [1m     2.5% [0m [1m    25.0% [0m [1m    50.0% [0m [1m    75.0% [0m [1m    97.5% [0m
- [90m     Symbol [0m [90m  Float64 [0m [90m  Float64 [0m [90m  Float64 [0m [90m  Float64 [0m [90m  Float64 [0m
-
-           α   -49.8948   -39.7950   -34.9188   -29.8116   -19.8403
-           β     2.1673     2.3108     2.3872     2.4580     2.6100
-           σ     9.8649    10.1550    10.3018    10.4554    10.7449
-</code></pre>
-<h4 id="visualizing-the-mcmc-diagnostics-and-summarizing-the-results">Visualizing the MCMC Diagnostics and Summarizing the Results</h4>
-<p>Now that we have performed Bayesian inference using the <code>NUTS()</code> algorithm, we can visualize the results. Addisionally, call for a summary of the statistics of the inferred posterior distributions of $\theta$.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">summarize</span><span class="p">(</span><span class="n">chain</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code> [1m parameters [0m [1m     mean [0m [1m     std [0m [1m    mcse [0m [1m ess_bulk [0m [1m ess_tail [0m [1m    rhat [0m [1m [0m ⋯
- [90m     Symbol [0m [90m  Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m  Float64 [0m [90m  Float64 [0m [90m Float64 [0m [90m [0m ⋯
-
-           α   -34.8414    7.6414    0.4117   344.5155   365.1189    1.0038    ⋯
-           β     2.3859    0.1124    0.0060   345.5269   345.0618    1.0039    ⋯
-           σ    10.3030    0.2239    0.0100   509.4680   389.9078    1.0016    ⋯
-[36m                                                                1 column omitted[0m
-</code></pre>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">plot</span><span class="p">(</span><span class="n">chain</span><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20231110_Bayesian_Linear_Regression_Julia/output_16_0.svg" type="" alt="svg"  /></p>
-<h5 id="visualizing-the-results">Visualizing the results</h5>
-<p>It is worth noting that the results from a Bayesian Linear Regression is not one single regression line, but many. From PyMC&rsquo;s <a href="https://www.pymc.io/projects/docs/en/stable/learn/core_notebooks/GLM_linear.html">Generalized Linear Regression tutorial</a>:</p>
-<blockquote>
-<p>In GLMs, we do not only have one best fitting regression line, but many. A posterior predictive plot takes multiple samples from the posterior (intercepts and slopes) and plots a regression line for each of them. We can manually generate these regression lines using the posterior samples directly.</p>
-</blockquote>
-<p>What this means is that if we want to visualize all the lines that are generated by the parameter posterior distribution sample pool, we need to generate one line per sample set, and then we can plot them all. This procedure is executed next.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># plot all the sample regressions</span>
-</span></span><span class="line"><span class="cl"><span class="c"># this method was taken from: https://www.youtube.com/watch?v=EgrrtZEVOv0&amp;t=1113s</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mi">1</span><span class="o">:</span><span class="n">samples</span>
-</span></span><span class="line"><span class="cl">	<span class="n">α</span> <span class="o">=</span> <span class="n">chain</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>    <span class="c">#chain[row, column, chain_ID]</span>
-</span></span><span class="line"><span class="cl">	<span class="n">β</span> <span class="o">=</span> <span class="n">chain</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">	<span class="n">σ²</span> <span class="o">=</span> <span class="n">chain</span><span class="p">[</span><span class="n">i</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl">	<span class="n">plot!</span><span class="p">(</span><span class="n">plot_data</span><span class="p">,</span> <span class="n">x</span> <span class="o">-&gt;</span> <span class="n">α</span> <span class="o">+</span> <span class="n">β</span><span class="o">*</span><span class="n">x</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">		<span class="n">legend</span> <span class="o">=</span> <span class="nb">false</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">		<span class="c"># samples</span>
-</span></span><span class="line"><span class="cl">		<span class="n">linewidth</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">color</span> <span class="o">=</span> <span class="ss">:orange</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.02</span><span class="p">,</span>
-</span></span><span class="line"><span class="cl">		<span class="c"># error</span>
-</span></span><span class="line"><span class="cl">        <span class="n">ribbon</span> <span class="o">=</span> <span class="n">σ²</span><span class="p">,</span> <span class="n">fillalpha</span> <span class="o">=</span> <span class="mf">0.002</span>
-</span></span><span class="line"><span class="cl">    <span class="p">)</span>
-</span></span><span class="line"><span class="cl"><span class="k">end</span>	
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">plot_data</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20231110_Bayesian_Linear_Regression_Julia/output_18_0.svg" type="" alt="svg"  /></p>
-<h3 id="using-the-regression-model-to-make-predictions">Using the Regression Model to Make Predictions</h3>
-<p>Select the heights for which we want to predict the weights and then run the prediction command from <code>Turing</code>.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">pred_height</span> <span class="o">=</span> <span class="p">[</span><span class="mi">62</span><span class="p">,</span> <span class="mi">84</span><span class="p">,</span> <span class="mi">75</span><span class="p">,</span> <span class="mi">70</span><span class="p">,</span> <span class="mi">71</span><span class="p">,</span> <span class="mi">67</span><span class="p">]</span>
-</span></span><span class="line"><span class="cl"><span class="n">predictions</span> <span class="o">=</span> <span class="n">predict</span><span class="p">(</span><span class="n">blr</span><span class="p">(</span><span class="n">pred_height</span><span class="p">,</span> <span class="nb">missing</span><span class="p">),</span> <span class="n">chain</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>Chains MCMC chain (1000×6×1 Array{Float64, 3}):
-
-Iterations        = 1:1:1000
-Number of chains  = 1
-Samples per chain = 1000
-parameters        = weight[1], weight[2], weight[3], weight[4], weight[5], weight[6]
-internals         = 
-
-Summary Statistics
- [1m parameters [0m [1m     mean [0m [1m     std [0m [1m    mcse [0m [1m  ess_bulk [0m [1m ess_tail [0m [1m    rhat [0m [1m[0m ⋯
- [90m     Symbol [0m [90m  Float64 [0m [90m Float64 [0m [90m Float64 [0m [90m   Float64 [0m [90m  Float64 [0m [90m Float64 [0m [90m[0m ⋯
-
-   weight[1]   113.6815   10.3344    0.3270    997.5393   947.2109    0.9993   ⋯
-   weight[2]   165.3164   10.8352    0.3744    832.5405   818.6640    1.0008   ⋯
-   weight[3]   143.8911   10.5355    0.3461    929.5467   874.2977    0.9993   ⋯
-   weight[4]   132.3417   10.4836    0.3448    921.6347   943.0320    1.0007   ⋯
-   weight[5]   134.7606   10.7046    0.3350   1023.8876   977.6814    1.0025   ⋯
-   weight[6]   124.9423   10.2245    0.3247    993.9282   867.7391    0.9991   ⋯
-[36m                                                                1 column omitted[0m
-
-Quantiles
- [1m parameters [0m [1m     2.5% [0m [1m    25.0% [0m [1m    50.0% [0m [1m    75.0% [0m [1m    97.5% [0m
- [90m     Symbol [0m [90m  Float64 [0m [90m  Float64 [0m [90m  Float64 [0m [90m  Float64 [0m [90m  Float64 [0m
-
-   weight[1]    93.9378   106.3972   113.6943   120.8093   134.9264
-   weight[2]   142.4871   158.4933   165.5406   172.7313   184.7437
-   weight[3]   122.8292   137.0108   144.0339   151.1920   164.2645
-   weight[4]   111.8872   125.3733   132.1726   139.2690   153.7222
-   weight[5]   113.9147   127.4356   135.0149   142.1375   154.5537
-   weight[6]   105.3221   118.0098   125.1640   131.6011   145.2976
-</code></pre>
-<h4 id="visualize-the-distributions-of-the-predicted-weights">Visualize the Distributions of the Predicted Weights</h4>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">plot</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span>
-</span></span></code></pre></div><p><img loading="lazy" src="/images/20231110_Bayesian_Linear_Regression_Julia/output_22_0.svg" type="" alt="svg"  /></p>
-<p>Finally, to obtain a point estimate, compute the mean weight prediction for each height.</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="n">mean_predictions</span> <span class="o">=</span> <span class="n">mean</span><span class="p">(</span><span class="n">predictions</span><span class="p">)</span>
-</span></span></code></pre></div><pre><code>Mean
- [1m parameters [0m [1m     mean [0m
- [90m     Symbol [0m [90m  Float64 [0m
-
-   weight[1]   113.6815
-   weight[2]   165.3164
-   weight[3]   143.8911
-   weight[4]   132.3417
-   weight[5]   134.7606
-   weight[6]   124.9423
-</code></pre>
-]]></content:encoded>
-    </item>
-    
-  </channel>
-</rss>
+With just a few lines of code, we were able to estimate states, reconstruct responses, and confidently quantify uncertainties—a win for both accuracy and usability. 🚀
