@@ -67,7 +67,7 @@ For this example, we consider a simplified **4-floor shear building model** with
 
 The structural system is depicted below:
 
-![shear_model](/images/20241219_RxInfer_StructuralDynamics/shear_model.PNG)
+![shear_model](/images/20241219_RxInfer_StructuralDynamics/shear_model.png)
 
 
 ```julia

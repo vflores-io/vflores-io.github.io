@@ -2,9 +2,6 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>http://localhost:1313/posts/20241219_rxinfer_structuraldynamics/structural_dynamics_example_4dof_no_filter_portfolio/</loc>
-    <lastmod>2024-12-18T09:52:15+07:00</lastmod>
-  </url><url>
     <loc>http://localhost:1313/tags/bayesian-filter/</loc>
     <lastmod>2024-12-18T09:52:15+07:00</lastmod>
   </url><url>
@@ -18,6 +15,9 @@
     <lastmod>2024-12-18T09:52:15+07:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/tags/kalman-filter/</loc>
+    <lastmod>2024-12-18T09:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/20241219_rxinfer_structuraldynamics/rxinfer_structural_dynamics/</loc>
     <lastmod>2024-12-18T09:52:15+07:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/posts/</loc>
