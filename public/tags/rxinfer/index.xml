@@ -14,8 +14,7 @@
       
       <guid>http://localhost:1313/posts/20241219_rxinfer_structuraldynamics/structural_dynamics_example_4dof_no_filter_portfolio/</guid>
       <description>Implementing an AKF in Julia and RxInfer for Structural Dyanmics analysis.</description>
-      <content:encoded><![CDATA[<h1 id="augmented-kalman-filter-and-rxinfer-for-structural-dynamics">Augmented Kalman Filter and RxInfer for Structural Dynamics</h1>
-<h2 id="state-and-input-estimation-with-rxinfer">State and Input Estimation with RxInfer</h2>
+      <content:encoded><![CDATA[<h2 id="state-and-input-estimation-with-rxinfer">State and Input Estimation with RxInfer</h2>
 <p>In this example, we estimate system states and unknown input forces for a simple <strong>structural dynamical system</strong> using the Augmented Kalman Filter (AKF) smoother in <strong>RxInfer</strong>.</p>
 <p>The system can be described using a <strong>state-space model</strong>:
 $$
@@ -57,7 +56,7 @@ $$</p>
 <li>$ C $ is the proportional damping matrix reflecting energy dissipation.</li>
 </ul>
 <p>The structural system is depicted below:</p>
-<p></p>
+<p><img loading="lazy" src="/images/20241219_RxInfer_StructuralDynamics/shear_model.PNG" type="" alt="shear_model"  /></p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># define the structural system matrices</span>
 </span></span><span class="line"><span class="cl"><span class="k">struct</span> <span class="kt">StructuralMatrices</span>
 </span></span><span class="line"><span class="cl">    <span class="n">M</span><span class="o">::</span><span class="kt">Union</span><span class="p">{</span><span class="kt">Nothing</span><span class="p">,</span> <span class="kt">Matrix</span><span class="p">{</span><span class="kt">Float64</span><span class="p">}}</span>

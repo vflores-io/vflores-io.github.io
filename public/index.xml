@@ -8,7 +8,7 @@
     <language>en</language>
     <lastBuildDate>Wed, 18 Dec 2024 09:52:15 +0700</lastBuildDate><atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
     <item>
-      <title>Augmented Kalman Filter and RxInfer for Structural Dynamics</title>
+      <title>Kalman Filter and RxInfer for Structural Dynamics</title>
       <link>http://localhost:1313/posts/20241219_rxinfer_structuraldynamics/structural_dynamics_example_4dof_no_filter_portfolio/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
@@ -278,8 +278,8 @@ $$</p>
 <h5 id="full-field-vs-measurement-space">Full-Field vs. Measurement Space</h5>
 <p>To avoid confusion, we define two augmented measurement matrices:</p>
 <ul>
-<li><strong>$ G_{\text{aug}} $</strong>: Projects the augmented state vector $ \tilde{x}[k] $ to the observed <strong>sensor measurements</strong> (e.g., accelerations at specific nodes).</li>
-<li><em><em>$ G^</em> $</em>*: The <strong>augmented full-field measurement matrix</strong>, which projects the augmented state vector to the full-field <strong>system response</strong>. This includes all degrees of freedom (displacements, velocities, and accelerations).</li>
+<li>$ G_{\text{aug}} $: Projects the augmented state vector $ \tilde{x}[k] $ to the observed <strong>sensor measurements</strong> (e.g., accelerations at specific nodes).</li>
+<li>$ G^* $: The <strong>augmented full-field measurement matrix</strong>, which projects the augmented state vector to the full-field <strong>system response</strong>. This includes all degrees of freedom (displacements, velocities, and accelerations).</li>
 </ul>
 <p>The distinction is critical:</p>
 <ul>
@@ -294,13 +294,13 @@ $$</p>
 <li>State noise covariance $ Q_x $ is chosen to reflect minimal uncertainty in the model.</li>
 </ul>
 <p>The augmented noise covariance matrix $ Q_{\text{akf}} $ combines these quantities:</p>
-<p>$$
+<p>\[
 Q_{\text{akf}} =
 \begin{bmatrix}
-Q_x &amp; 0 \
+Q_x &amp; 0 \\
 0 &amp; Q_p
 \end{bmatrix}.
-$$</p>
+\]</p>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-julia" data-lang="julia"><span class="line"><span class="cl"><span class="c"># function to construct the augmented model</span>
 </span></span><span class="line"><span class="cl"><span class="k">function</span> <span class="n">construct_augmented_model</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">J</span><span class="p">,</span> <span class="n">G_full</span><span class="p">,</span> <span class="n">J_full</span><span class="p">,</span> <span class="n">nf</span><span class="p">,</span> <span class="n">ndof</span><span class="p">)</span>
 </span></span><span class="line"><span class="cl">    <span class="n">Z_aug</span> <span class="o">=</span> <span class="n">zeros</span><span class="p">(</span><span class="n">nf</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">ndof</span><span class="p">)</span>

@@ -1,5 +1,5 @@
 +++
-title = 'Augmented Kalman Filter and RxInfer for Structural Dynamics'
+title = 'Kalman Filter and RxInfer for Structural Dynamics'
 date = 2024-12-18T09:52:15+07:00
 draft = false
 summary = "Implementing an AKF in Julia and RxInfer for Structural Dyanmics analysis."
@@ -342,8 +342,8 @@ where:
 ##### Full-Field vs. Measurement Space  
 
 To avoid confusion, we define two augmented measurement matrices:  
-- **$ G_{\text{aug}} $**: Projects the augmented state vector $ \tilde{x}[k] $ to the observed **sensor measurements** (e.g., accelerations at specific nodes).  
-- **$ G^* $**: The **augmented full-field measurement matrix**, which projects the augmented state vector to the full-field **system response**. This includes all degrees of freedom (displacements, velocities, and accelerations).  
+- $ G_{\text{aug}} $: Projects the augmented state vector $ \tilde{x}[k] $ to the observed **sensor measurements** (e.g., accelerations at specific nodes).  
+- $ G^* $: The **augmented full-field measurement matrix**, which projects the augmented state vector to the full-field **system response**. This includes all degrees of freedom (displacements, velocities, and accelerations).  
 
 The distinction is critical:
 - $ G_{\text{aug}} $ is used directly in the smoother to estimate states and inputs from limited measurements.  
@@ -358,13 +358,17 @@ In this step, the process and measurement noise covariances are assumed to be **
 
 The augmented noise covariance matrix $ Q_{\text{akf}} $ combines these quantities:
 
-$$
+\\[
 Q_{\text{akf}} =
-\begin{bmatrix}
-Q_x & 0 \\
+\\begin{bmatrix}
+Q_x & 0 \\\\
 0 & Q_p
-\end{bmatrix}.
-$$
+\\end{bmatrix}.
+\\]
+
+
+
+
 
 
 
