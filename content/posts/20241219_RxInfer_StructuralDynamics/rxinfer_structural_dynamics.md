@@ -8,7 +8,8 @@ tags = ["RxInfer", "Structural Dynamics", "Kalman Filter", "Bayesian Filter", "J
 
 ## State and Input Estimation with RxInfer
 
-In this example, we estimate system states and unknown input forces for a simple **structural dynamical system** using the Augmented Kalman Filter (AKF) smoother in **RxInfer**.
+In this example, we estimate system states and unknown input forces for a simple **structural dynamical system** using the [Augmented Kalman Filter (AKF)](https://www.sciencedirect.com/science/article/abs/pii/S0888327011003931) in **RxInfer**.
+
 
 The system can be described using a **state-space model**:
 $$
