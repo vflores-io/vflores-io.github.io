@@ -2,347 +2,347 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Tags on Victor Flores, PhD</title>
-    <link>http://localhost:1313/tags/</link>
+    <link>http://localhost:59413/tags/</link>
     <description>Recent content in Tags on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Wed, 18 Dec 2024 09:52:15 +0700</lastBuildDate><atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 18 Dec 2024 09:52:15 +0700</lastBuildDate><atom:link href="http://localhost:59413/tags/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Bayesian Filter</title>
-      <link>http://localhost:1313/tags/bayesian-filter/</link>
+      <link>http://localhost:59413/tags/bayesian-filter/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
-      <guid>http://localhost:1313/tags/bayesian-filter/</guid>
+      <guid>http://localhost:59413/tags/bayesian-filter/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Civil Engineering</title>
-      <link>http://localhost:1313/tags/civil-engineering/</link>
+      <link>http://localhost:59413/tags/civil-engineering/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
-      <guid>http://localhost:1313/tags/civil-engineering/</guid>
+      <guid>http://localhost:59413/tags/civil-engineering/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Dynamical Analysis</title>
-      <link>http://localhost:1313/tags/dynamical-analysis/</link>
+      <link>http://localhost:59413/tags/dynamical-analysis/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
-      <guid>http://localhost:1313/tags/dynamical-analysis/</guid>
+      <guid>http://localhost:59413/tags/dynamical-analysis/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Julia</title>
-      <link>http://localhost:1313/tags/julia/</link>
+      <link>http://localhost:59413/tags/julia/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
-      <guid>http://localhost:1313/tags/julia/</guid>
+      <guid>http://localhost:59413/tags/julia/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Kalman Filter</title>
-      <link>http://localhost:1313/tags/kalman-filter/</link>
+      <link>http://localhost:59413/tags/kalman-filter/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
-      <guid>http://localhost:1313/tags/kalman-filter/</guid>
+      <guid>http://localhost:59413/tags/kalman-filter/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>RxInfer</title>
-      <link>http://localhost:1313/tags/rxinfer/</link>
+      <link>http://localhost:59413/tags/rxinfer/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
-      <guid>http://localhost:1313/tags/rxinfer/</guid>
+      <guid>http://localhost:59413/tags/rxinfer/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Structural Analysis</title>
-      <link>http://localhost:1313/tags/structural-analysis/</link>
+      <link>http://localhost:59413/tags/structural-analysis/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
-      <guid>http://localhost:1313/tags/structural-analysis/</guid>
+      <guid>http://localhost:59413/tags/structural-analysis/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Structural Dynamics</title>
-      <link>http://localhost:1313/tags/structural-dynamics/</link>
+      <link>http://localhost:59413/tags/structural-dynamics/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
-      <guid>http://localhost:1313/tags/structural-dynamics/</guid>
+      <guid>http://localhost:59413/tags/structural-dynamics/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Bayesian Classification</title>
-      <link>http://localhost:1313/tags/bayesian-classification/</link>
+      <link>http://localhost:59413/tags/bayesian-classification/</link>
       <pubDate>Tue, 24 Sep 2024 14:12:51 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/bayesian-classification/</guid>
+      <guid>http://localhost:59413/tags/bayesian-classification/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Bayesian Regression</title>
-      <link>http://localhost:1313/tags/bayesian-regression/</link>
+      <link>http://localhost:59413/tags/bayesian-regression/</link>
       <pubDate>Tue, 24 Sep 2024 14:12:51 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/bayesian-regression/</guid>
+      <guid>http://localhost:59413/tags/bayesian-regression/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Bayesian Survival Analysis</title>
-      <link>http://localhost:1313/tags/bayesian-survival-analysis/</link>
+      <link>http://localhost:59413/tags/bayesian-survival-analysis/</link>
       <pubDate>Tue, 24 Sep 2024 14:12:51 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/bayesian-survival-analysis/</guid>
+      <guid>http://localhost:59413/tags/bayesian-survival-analysis/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Classification</title>
-      <link>http://localhost:1313/tags/classification/</link>
+      <link>http://localhost:59413/tags/classification/</link>
       <pubDate>Tue, 24 Sep 2024 14:12:51 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/classification/</guid>
+      <guid>http://localhost:59413/tags/classification/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>NumPyro</title>
-      <link>http://localhost:1313/tags/numpyro/</link>
+      <link>http://localhost:59413/tags/numpyro/</link>
       <pubDate>Tue, 24 Sep 2024 14:12:51 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/numpyro/</guid>
+      <guid>http://localhost:59413/tags/numpyro/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Weibull</title>
-      <link>http://localhost:1313/tags/weibull/</link>
+      <link>http://localhost:59413/tags/weibull/</link>
       <pubDate>Tue, 24 Sep 2024 14:12:51 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/weibull/</guid>
+      <guid>http://localhost:59413/tags/weibull/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Bayesian</title>
-      <link>http://localhost:1313/tags/bayesian/</link>
+      <link>http://localhost:59413/tags/bayesian/</link>
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/bayesian/</guid>
+      <guid>http://localhost:59413/tags/bayesian/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Predictions</title>
-      <link>http://localhost:1313/tags/predictions/</link>
+      <link>http://localhost:59413/tags/predictions/</link>
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/predictions/</guid>
+      <guid>http://localhost:59413/tags/predictions/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Predictive Posterior</title>
-      <link>http://localhost:1313/tags/predictive-posterior/</link>
+      <link>http://localhost:59413/tags/predictive-posterior/</link>
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/predictive-posterior/</guid>
+      <guid>http://localhost:59413/tags/predictive-posterior/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>PyMC</title>
-      <link>http://localhost:1313/tags/pymc/</link>
+      <link>http://localhost:59413/tags/pymc/</link>
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/pymc/</guid>
+      <guid>http://localhost:59413/tags/pymc/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Regression</title>
-      <link>http://localhost:1313/tags/regression/</link>
+      <link>http://localhost:59413/tags/regression/</link>
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/regression/</guid>
+      <guid>http://localhost:59413/tags/regression/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Deep Learning</title>
-      <link>http://localhost:1313/tags/deep-learning/</link>
+      <link>http://localhost:59413/tags/deep-learning/</link>
       <pubDate>Tue, 21 May 2024 22:38:29 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/deep-learning/</guid>
+      <guid>http://localhost:59413/tags/deep-learning/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Flux.jl</title>
-      <link>http://localhost:1313/tags/flux.jl/</link>
+      <link>http://localhost:59413/tags/flux.jl/</link>
       <pubDate>Tue, 21 May 2024 22:38:29 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/flux.jl/</guid>
+      <guid>http://localhost:59413/tags/flux.jl/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Machine Learning</title>
-      <link>http://localhost:1313/tags/machine-learning/</link>
+      <link>http://localhost:59413/tags/machine-learning/</link>
       <pubDate>Tue, 21 May 2024 22:38:29 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/machine-learning/</guid>
+      <guid>http://localhost:59413/tags/machine-learning/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Transfer Learning</title>
-      <link>http://localhost:1313/tags/transfer-learning/</link>
+      <link>http://localhost:59413/tags/transfer-learning/</link>
       <pubDate>Tue, 21 May 2024 22:38:29 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/transfer-learning/</guid>
+      <guid>http://localhost:59413/tags/transfer-learning/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>PyTorch</title>
-      <link>http://localhost:1313/tags/pytorch/</link>
+      <link>http://localhost:59413/tags/pytorch/</link>
       <pubDate>Wed, 15 May 2024 14:53:29 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/pytorch/</guid>
+      <guid>http://localhost:59413/tags/pytorch/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Dash</title>
-      <link>http://localhost:1313/tags/dash/</link>
+      <link>http://localhost:59413/tags/dash/</link>
       <pubDate>Thu, 09 May 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/dash/</guid>
+      <guid>http://localhost:59413/tags/dash/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Dashboard</title>
-      <link>http://localhost:1313/tags/dashboard/</link>
+      <link>http://localhost:59413/tags/dashboard/</link>
       <pubDate>Thu, 09 May 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/dashboard/</guid>
+      <guid>http://localhost:59413/tags/dashboard/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Data Analysis</title>
-      <link>http://localhost:1313/tags/data-analysis/</link>
+      <link>http://localhost:59413/tags/data-analysis/</link>
       <pubDate>Thu, 09 May 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/data-analysis/</guid>
+      <guid>http://localhost:59413/tags/data-analysis/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Data Cleaning</title>
-      <link>http://localhost:1313/tags/data-cleaning/</link>
+      <link>http://localhost:59413/tags/data-cleaning/</link>
       <pubDate>Thu, 09 May 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/data-cleaning/</guid>
+      <guid>http://localhost:59413/tags/data-cleaning/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Data Wrangling</title>
-      <link>http://localhost:1313/tags/data-wrangling/</link>
+      <link>http://localhost:59413/tags/data-wrangling/</link>
       <pubDate>Thu, 09 May 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/data-wrangling/</guid>
+      <guid>http://localhost:59413/tags/data-wrangling/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Time Series</title>
-      <link>http://localhost:1313/tags/time-series/</link>
+      <link>http://localhost:59413/tags/time-series/</link>
       <pubDate>Sat, 02 Mar 2024 16:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/time-series/</guid>
+      <guid>http://localhost:59413/tags/time-series/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Turing</title>
-      <link>http://localhost:1313/tags/turing/</link>
+      <link>http://localhost:59413/tags/turing/</link>
       <pubDate>Sat, 02 Mar 2024 16:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/turing/</guid>
+      <guid>http://localhost:59413/tags/turing/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Poisson</title>
-      <link>http://localhost:1313/tags/poisson/</link>
+      <link>http://localhost:59413/tags/poisson/</link>
       <pubDate>Sat, 17 Feb 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/poisson/</guid>
+      <guid>http://localhost:59413/tags/poisson/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Logistic</title>
-      <link>http://localhost:1313/tags/logistic/</link>
+      <link>http://localhost:59413/tags/logistic/</link>
       <pubDate>Tue, 09 Jan 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/logistic/</guid>
+      <guid>http://localhost:59413/tags/logistic/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
     
     <item>
       <title>Bayesian Linear Regression</title>
-      <link>http://localhost:1313/tags/bayesian-linear-regression/</link>
+      <link>http://localhost:59413/tags/bayesian-linear-regression/</link>
       <pubDate>Fri, 10 Nov 2023 14:53:29 +0800</pubDate>
       
-      <guid>http://localhost:1313/tags/bayesian-linear-regression/</guid>
+      <guid>http://localhost:59413/tags/bayesian-linear-regression/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>

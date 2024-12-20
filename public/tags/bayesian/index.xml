@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Bayesian on Victor Flores, PhD</title>
-    <link>http://localhost:1313/tags/bayesian/</link>
+    <link>http://localhost:59413/tags/bayesian/</link>
     <description>Recent content in Bayesian on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Mon, 27 May 2024 16:57:31 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/bayesian/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Mon, 27 May 2024 16:57:31 +0800</lastBuildDate><atom:link href="http://localhost:59413/tags/bayesian/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Bayesian Linear Regression with PyMC</title>
-      <link>http://localhost:1313/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</link>
+      <link>http://localhost:59413/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</link>
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</guid>
+      <guid>http://localhost:59413/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</guid>
       <description>Learn the basics of Bayesian linear regression using the excellent PyMC Probabilistic Programming package. This focuses on model formulation in PyMC, interpretation, and how to make predictions on out-of-sample data.</description>
       <content:encoded><![CDATA[<p><a href="https://colab.research.google.com/github/vflores-io/Portfolio/blob/main/Bayesian%20Methods%20Tutorials/Python/PyMC/E01_BayLinReg/E01_BayLinReg_PyMC.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a></p>
 <hr>
@@ -747,10 +747,10 @@ NUTS: [alpha, beta, sigma]
     
     <item>
       <title>Bayesian Time Series Analysis with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</link>
+      <link>http://localhost:59413/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</link>
       <pubDate>Sat, 02 Mar 2024 16:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</guid>
+      <guid>http://localhost:59413/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</guid>
       <description>This tutorial covers the fundamentals of Bayesian approaches to time series, model construction, and practical implementation, using real-world data for hands-on learning.</description>
       <content:encoded><![CDATA[<hr>
 <h2 id="introduction">Introduction</h2>
@@ -976,10 +976,10 @@ Quantiles
     
     <item>
       <title>Bayesian Poisson Regression with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20240217_bayesian_poisson_regression/20240217_bayesian_poisson_regression/</link>
+      <link>http://localhost:59413/posts/20240217_bayesian_poisson_regression/20240217_bayesian_poisson_regression/</link>
       <pubDate>Sat, 17 Feb 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240217_bayesian_poisson_regression/20240217_bayesian_poisson_regression/</guid>
+      <guid>http://localhost:59413/posts/20240217_bayesian_poisson_regression/20240217_bayesian_poisson_regression/</guid>
       <description>Explore Bayesian Poisson regression for modeling count data with Julia and Turing.jl. This tutorial includes model setup, implementation, and performance assessment with a practical example.</description>
       <content:encoded><![CDATA[<hr>
 <p>In this example, I am following the tutorials found in:</p>
@@ -1234,10 +1234,10 @@ b2: 10.342642711232362
     
     <item>
       <title>Bayesian Logistic Regression with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</link>
+      <link>http://localhost:59413/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</link>
       <pubDate>Tue, 09 Jan 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</guid>
+      <guid>http://localhost:59413/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</guid>
       <description>Applying Turing.jl package in Julia for a probabilistic approach to a classification problem on a real-world dataset.</description>
       <content:encoded><![CDATA[<hr>
 <h2 id="problem-statement">Problem Statement</h2>
@@ -1780,10 +1780,10 @@ Quantiles
     
     <item>
       <title>Bayesian Linear Regression with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</link>
+      <link>http://localhost:59413/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</link>
       <pubDate>Fri, 10 Nov 2023 14:53:29 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</guid>
+      <guid>http://localhost:59413/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</guid>
       <description>Learn the basics of Bayesian linear regression using Julia and Turing.jl. This tutorial covers model formulation, implementation, and interpretation through a practical example.</description>
       <content:encoded><![CDATA[<hr>
 <h2 id="finding-a-linear-relationship-between-height-and-weight-using-bayesian-methods">Finding a Linear Relationship Between Height and Weight Using Bayesian Methods</h2>

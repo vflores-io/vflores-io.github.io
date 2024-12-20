@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Data Analysis on Victor Flores, PhD</title>
-    <link>http://localhost:1313/tags/data-analysis/</link>
+    <link>http://localhost:59413/tags/data-analysis/</link>
     <description>Recent content in Data Analysis on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Thu, 09 May 2024 11:57:07 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/data-analysis/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Thu, 09 May 2024 11:57:07 +0800</lastBuildDate><atom:link href="http://localhost:59413/tags/data-analysis/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Election Data Dashboard Pt. 1: Collection and Cleaning</title>
-      <link>http://localhost:1313/posts/20240509_election_dash_part_1-data_cleaning/election_dash_part_1-data_cleaning/</link>
+      <link>http://localhost:59413/posts/20240509_election_dash_part_1-data_cleaning/election_dash_part_1-data_cleaning/</link>
       <pubDate>Thu, 09 May 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240509_election_dash_part_1-data_cleaning/election_dash_part_1-data_cleaning/</guid>
+      <guid>http://localhost:59413/posts/20240509_election_dash_part_1-data_cleaning/election_dash_part_1-data_cleaning/</guid>
       <description>In this project, election data is collected, explored and cleaned. Visualization functions are refactored to be used on a dashboard later on.</description>
       <content:encoded><![CDATA[<hr>
 <h2 id="part-1-collecting-and-cleaning-the-data">Part 1: Collecting and Cleaning the Data</h2>
@@ -2749,10 +2749,10 @@ dtype: object
     
     <item>
       <title>Election Data Dashboard Pt. 2: Dashboard with Dash</title>
-      <link>http://localhost:1313/posts/20240509_election_dash_part_2-dashboard/20240509_election_dash_part_2-dashboard/</link>
+      <link>http://localhost:59413/posts/20240509_election_dash_part_2-dashboard/20240509_election_dash_part_2-dashboard/</link>
       <pubDate>Thu, 09 May 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240509_election_dash_part_2-dashboard/20240509_election_dash_part_2-dashboard/</guid>
+      <guid>http://localhost:59413/posts/20240509_election_dash_part_2-dashboard/20240509_election_dash_part_2-dashboard/</guid>
       <description>The cleaned data is loadsed and the plot generating functions are refactored here. Then a dashboard is created using dash.</description>
       <content:encoded><![CDATA[<hr>
 <h3 id="creating-the-dashboard-using-dash">Creating the Dashboard using <code>dash</code></h3>

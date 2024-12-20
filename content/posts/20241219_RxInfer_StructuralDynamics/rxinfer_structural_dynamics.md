@@ -109,17 +109,36 @@ M \ddot{x}(t) + C \dot{x}(t) + K x(t) = F(t),
 $$
 
 we introduce the state variable:
-$$
-z(t) = \begin{bmatrix} x(t) \\ \dot{x}(t) \end{bmatrix},
-$$
+
+\\[
+z(t) =
+\\begin{bmatrix}
+x(t) \\\\
+\dot{x}(t)
+\\end{bmatrix},
+\\]
+
 which allows us to express the system as:
 $$
 \dot{z}(t) = A_{\text{c}} z(t) + B_{\text{c}} p(t),
 $$
 where:
-- $ A_{\text{c}} = \begin{bmatrix} 0 & I \\ -(M^{-1} K) & -(M^{-1} C) \end{bmatrix} $
-- $ B_{\text{c}} = \begin{bmatrix} 0 \\ M^{-1} S_p \end{bmatrix} $
+\\[
+A_{\text{c}} =
+\\begin{bmatrix}
+0 & I \\\\
+-(M^{-1} K) & -(M^{-1} C)
+\\end{bmatrix}
+\\]
+\\[
+B_{\text{c}} =
+\\begin{bmatrix}
+0 \\\\
+M^{-1} S_p
+\\end{bmatrix}
+\\]
 - $ S_p $ is the input selection matrix that determines where the external forces $ p(t) $ are applied.
+
 
 To perform simulations, the system is discretized using a time step $ \Delta t $ as:
 $$
@@ -249,12 +268,13 @@ end
 
 The structural response under applied forces is governed by the state-space equations:
 
-$$
+\\[
 \begin{aligned}
-x[k+1] & = A x[k] + B p[k], \\
-y[k]   & = G_{\text{full}} x[k] + J_{\text{full}} p[k],
+x[k+1] & = A x[k] + B p[k], \\\\
+y[k] & = G_{\text{full}} x[k] + J_{\text{full}} p[k],
 \end{aligned}
-$$
+\\]
+
 where $ x[k] $ are the system states, $ p[k] $ are the input forces, and $ y[k] $ are the **full-field responses**, i.e., the response at every degree of freedom in our structure.
 
 
@@ -314,25 +334,27 @@ end
 
 In structural health monitoring, external input forces $ p[k] $ acting on a structure, such as environmental loads or unknown excitations, are often not directly measurable. To estimate both the system states $ x[k] $ and these unknown input forces, we **augment the state vector** as follows:
 
-$$
+\\[
 \tilde{x}[k] = 
-\begin{bmatrix}
-x[k] \\
+\\begin{bmatrix}
+x[k] \\\\
 p[k]
-\end{bmatrix}.
-$$
+\\end{bmatrix}.
+\\]
+
 
 This approach allows us to simultaneously infer the internal system states (e.g., displacements and velocities) and the unknown inputs using available measurements.
 
 
 The augmented system dynamics are then expressed as:
 
-$$
+\\[
 \begin{aligned}
-\tilde{x}[k+1] & = A_{\text{aug}} \tilde{x}[k] + w[k], \\
+\tilde{x}[k+1] & = A_{\text{aug}} \tilde{x}[k] + w[k], \\\\
 y[k] & = G_{\text{aug}} \tilde{x}[k] + v[k],
 \end{aligned}
-$$
+\\]
+
 
 where:
 - $ A_{\text{aug}} $: Augmented state transition matrix.  

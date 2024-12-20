@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Dynamical Analysis on Victor Flores, PhD</title>
-    <link>http://localhost:1313/tags/dynamical-analysis/</link>
+    <link>http://localhost:59413/tags/dynamical-analysis/</link>
     <description>Recent content in Dynamical Analysis on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Wed, 18 Dec 2024 09:52:15 +0700</lastBuildDate><atom:link href="http://localhost:1313/tags/dynamical-analysis/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 18 Dec 2024 09:52:15 +0700</lastBuildDate><atom:link href="http://localhost:59413/tags/dynamical-analysis/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Kalman Filter and RxInfer for Structural Dynamics</title>
-      <link>http://localhost:1313/posts/20241219_rxinfer_structuraldynamics/rxinfer_structural_dynamics/</link>
+      <link>http://localhost:59413/posts/20241219_rxinfer_structuraldynamics/rxinfer_structural_dynamics/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
-      <guid>http://localhost:1313/posts/20241219_rxinfer_structuraldynamics/rxinfer_structural_dynamics/</guid>
+      <guid>http://localhost:59413/posts/20241219_rxinfer_structuraldynamics/rxinfer_structural_dynamics/</guid>
       <description>Implementing an AKF in Julia and RxInfer for Structural Dyanmics analysis.</description>
       <content:encoded><![CDATA[<h2 id="state-and-input-estimation-with-rxinfer">State and Input Estimation with RxInfer</h2>
 <p>In this example, we estimate system states and unknown input forces for a simple <strong>structural dynamical system</strong> using the <a href="https://www.sciencedirect.com/science/article/abs/pii/S0888327011003931">Augmented Kalman Filter (AKF)</a> in <strong>RxInfer</strong>.</p>

@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Victor Flores, PhD</title>
-    <link>http://localhost:1313/</link>
+    <link>http://localhost:59413/</link>
     <description>Recent content on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Wed, 18 Dec 2024 09:52:15 +0700</lastBuildDate><atom:link href="http://localhost:1313/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Wed, 18 Dec 2024 09:52:15 +0700</lastBuildDate><atom:link href="http://localhost:59413/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Kalman Filter and RxInfer for Structural Dynamics</title>
-      <link>http://localhost:1313/posts/20241219_rxinfer_structuraldynamics/rxinfer_structural_dynamics/</link>
+      <link>http://localhost:59413/posts/20241219_rxinfer_structuraldynamics/rxinfer_structural_dynamics/</link>
       <pubDate>Wed, 18 Dec 2024 09:52:15 +0700</pubDate>
       
-      <guid>http://localhost:1313/posts/20241219_rxinfer_structuraldynamics/rxinfer_structural_dynamics/</guid>
+      <guid>http://localhost:59413/posts/20241219_rxinfer_structuraldynamics/rxinfer_structural_dynamics/</guid>
       <description>Implementing an AKF in Julia and RxInfer for Structural Dyanmics analysis.</description>
       <content:encoded><![CDATA[<h2 id="state-and-input-estimation-with-rxinfer">State and Input Estimation with RxInfer</h2>
 <p>In this example, we estimate system states and unknown input forces for a simple <strong>structural dynamical system</strong> using the <a href="https://www.sciencedirect.com/science/article/abs/pii/S0888327011003931">Augmented Kalman Filter (AKF)</a> in <strong>RxInfer</strong>.</p>
@@ -88,18 +88,34 @@ $$</p>
 <p>$$
 M \ddot{x}(t) + C \dot{x}(t) + K x(t) = F(t),
 $$</p>
-<p>we introduce the state variable:
-$$
-z(t) = \begin{bmatrix} x(t) \ \dot{x}(t) \end{bmatrix},
-$$
-which allows us to express the system as:
+<p>we introduce the state variable:</p>
+<p>\[
+z(t) =
+\begin{bmatrix}
+x(t) \\
+\dot{x}(t)
+\end{bmatrix},
+\]</p>
+<p>which allows us to express the system as:
 $$
 \dot{z}(t) = A_{\text{c}} z(t) + B_{\text{c}} p(t),
 $$
-where:</p>
+where:
+\[
+A_{\text{c}} =
+\begin{bmatrix}
+0 &amp; I \\
+-(M^{-1} K) &amp; -(M^{-1} C)
+\end{bmatrix}
+\]
+\[
+B_{\text{c}} =
+\begin{bmatrix}
+0 \\
+M^{-1} S_p
+\end{bmatrix}
+\]</p>
 <ul>
-<li>$ A_{\text{c}} = \begin{bmatrix} 0 &amp; I \ -(M^{-1} K) &amp; -(M^{-1} C) \end{bmatrix} $</li>
-<li>$ B_{\text{c}} = \begin{bmatrix} 0 \ M^{-1} S_p \end{bmatrix} $</li>
 <li>$ S_p $ is the input selection matrix that determines where the external forces $ p(t) $ are applied.</li>
 </ul>
 <p>To perform simulations, the system is discretized using a time step $ \Delta t $ as:
@@ -199,13 +215,13 @@ where:</p>
 </code></pre>
 <h3 id="simulating-the-structural-response">Simulating the Structural Response</h3>
 <p>The structural response under applied forces is governed by the state-space equations:</p>
-<p>$$
+<p>\[
 \begin{aligned}
-x[k+1] &amp; = A x[k] + B p[k], \
-y[k]   &amp; = G_{\text{full}} x[k] + J_{\text{full}} p[k],
+x[k+1] &amp; = A x[k] + B p[k], \\
+y[k] &amp; = G_{\text{full}} x[k] + J_{\text{full}} p[k],
 \end{aligned}
-$$
-where $ x[k] $ are the system states, $ p[k] $ are the input forces, and $ y[k] $ are the <strong>full-field responses</strong>, i.e., the response at every degree of freedom in our structure.</p>
+\]</p>
+<p>where $ x[k] $ are the system states, $ p[k] $ are the input forces, and $ y[k] $ are the <strong>full-field responses</strong>, i.e., the response at every degree of freedom in our structure.</p>
 <p>The function below returns:</p>
 <ul>
 <li><strong>True States</strong>: $ x_{\text{real}} $, propagated using $ A $ and $ B $.</li>
@@ -253,21 +269,21 @@ where $ x[k] $ are the system states, $ p[k] $ are the input forces, and $ y[k] 
 </code></pre>
 <h3 id="augmented-state-space-model">Augmented State-Space Model</h3>
 <p>In structural health monitoring, external input forces $ p[k] $ acting on a structure, such as environmental loads or unknown excitations, are often not directly measurable. To estimate both the system states $ x[k] $ and these unknown input forces, we <strong>augment the state vector</strong> as follows:</p>
-<p>$$
+<p>\[
 \tilde{x}[k] =
 \begin{bmatrix}
-x[k] \
+x[k] \\
 p[k]
 \end{bmatrix}.
-$$</p>
+\]</p>
 <p>This approach allows us to simultaneously infer the internal system states (e.g., displacements and velocities) and the unknown inputs using available measurements.</p>
 <p>The augmented system dynamics are then expressed as:</p>
-<p>$$
+<p>\[
 \begin{aligned}
-\tilde{x}[k+1] &amp; = A_{\text{aug}} \tilde{x}[k] + w[k], \
+\tilde{x}[k+1] &amp; = A_{\text{aug}} \tilde{x}[k] + w[k], \\
 y[k] &amp; = G_{\text{aug}} \tilde{x}[k] + v[k],
 \end{aligned}
-$$</p>
+\]</p>
 <p>where:</p>
 <ul>
 <li>$ A_{\text{aug}} $: Augmented state transition matrix.</li>
@@ -772,10 +788,10 @@ $$</li>
     
     <item>
       <title>Bayesian Classification and Survival Analysis with NumPyro</title>
-      <link>http://localhost:1313/posts/20240924_numpyro_logreg_surv_analysis/np01_logreg_surv_analysis/</link>
+      <link>http://localhost:59413/posts/20240924_numpyro_logreg_surv_analysis/np01_logreg_surv_analysis/</link>
       <pubDate>Tue, 24 Sep 2024 14:12:51 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240924_numpyro_logreg_surv_analysis/np01_logreg_surv_analysis/</guid>
+      <guid>http://localhost:59413/posts/20240924_numpyro_logreg_surv_analysis/np01_logreg_surv_analysis/</guid>
       <description>Applying Bayesian Classification and Survival Analysis to the Cirrhosis Patient Dataset.</description>
       <content:encoded><![CDATA[<p><a href="https://colab.research.google.com/github/vflores-io/Portfolio/blob/main/Bayesian%20Methods%20Tutorials/Python/NumPyro/NP01_LogReg_Surv_Analysis/NP01_LogReg_Surv_Analysis.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a></p>
 <hr>
@@ -3128,10 +3144,10 @@ Number of divergences: 0
     
     <item>
       <title>Bayesian Linear Regression with PyMC</title>
-      <link>http://localhost:1313/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</link>
+      <link>http://localhost:59413/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</link>
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</guid>
+      <guid>http://localhost:59413/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</guid>
       <description>Learn the basics of Bayesian linear regression using the excellent PyMC Probabilistic Programming package. This focuses on model formulation in PyMC, interpretation, and how to make predictions on out-of-sample data.</description>
       <content:encoded><![CDATA[<p><a href="https://colab.research.google.com/github/vflores-io/Portfolio/blob/main/Bayesian%20Methods%20Tutorials/Python/PyMC/E01_BayLinReg/E01_BayLinReg_PyMC.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a></p>
 <hr>
@@ -3866,10 +3882,10 @@ NUTS: [alpha, beta, sigma]
     
     <item>
       <title>Transfer Learning Classifier Again... with Julia!</title>
-      <link>http://localhost:1313/posts/20240521_julia_transfer_learning_v5/20240521_julia_transfer_learning_v5/</link>
+      <link>http://localhost:59413/posts/20240521_julia_transfer_learning_v5/20240521_julia_transfer_learning_v5/</link>
       <pubDate>Tue, 21 May 2024 22:38:29 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240521_julia_transfer_learning_v5/20240521_julia_transfer_learning_v5/</guid>
+      <guid>http://localhost:59413/posts/20240521_julia_transfer_learning_v5/20240521_julia_transfer_learning_v5/</guid>
       <description>Replicating the cat mood classifier, this time using Julia and Flux.jl.</description>
       <content:encoded><![CDATA[<hr>
 <p><img loading="lazy" src="/images/20240521_julia_transfer_learning_v5/intro.png" type="" alt="image"  /></p>
@@ -4527,10 +4543,10 @@ These methods ensure that the data is returned in a form suitable for the learni
     
     <item>
       <title>Transfer Learning Classifier Using PyTorch</title>
-      <link>http://localhost:1313/posts/20240515_cat_mood_classification/20240515_cat_mood_classification/</link>
+      <link>http://localhost:59413/posts/20240515_cat_mood_classification/20240515_cat_mood_classification/</link>
       <pubDate>Wed, 15 May 2024 14:53:29 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240515_cat_mood_classification/20240515_cat_mood_classification/</guid>
+      <guid>http://localhost:59413/posts/20240515_cat_mood_classification/20240515_cat_mood_classification/</guid>
       <description>Things we learn here include image data exploration, transfer learning, custom datasets, comparing ML models, saving/loading models and model data, conditional setup for different work environments.</description>
       <content:encoded><![CDATA[<p><a href="https://colab.research.google.com/github/vflores-io/cat_mood/blob/main/cat_mood_classification.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a></p>
 <h1 id="cat-expression-classifier-using-convolutional-neural-networks">Cat Expression Classifier Using Convolutional Neural Networks</h1>
@@ -5733,10 +5749,10 @@ weighted avg   0.734544  0.745455  0.738361  110.000000
     
     <item>
       <title>Election Data Dashboard Pt. 1: Collection and Cleaning</title>
-      <link>http://localhost:1313/posts/20240509_election_dash_part_1-data_cleaning/election_dash_part_1-data_cleaning/</link>
+      <link>http://localhost:59413/posts/20240509_election_dash_part_1-data_cleaning/election_dash_part_1-data_cleaning/</link>
       <pubDate>Thu, 09 May 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240509_election_dash_part_1-data_cleaning/election_dash_part_1-data_cleaning/</guid>
+      <guid>http://localhost:59413/posts/20240509_election_dash_part_1-data_cleaning/election_dash_part_1-data_cleaning/</guid>
       <description>In this project, election data is collected, explored and cleaned. Visualization functions are refactored to be used on a dashboard later on.</description>
       <content:encoded><![CDATA[<hr>
 <h2 id="part-1-collecting-and-cleaning-the-data">Part 1: Collecting and Cleaning the Data</h2>
@@ -8473,10 +8489,10 @@ dtype: object
     
     <item>
       <title>Election Data Dashboard Pt. 2: Dashboard with Dash</title>
-      <link>http://localhost:1313/posts/20240509_election_dash_part_2-dashboard/20240509_election_dash_part_2-dashboard/</link>
+      <link>http://localhost:59413/posts/20240509_election_dash_part_2-dashboard/20240509_election_dash_part_2-dashboard/</link>
       <pubDate>Thu, 09 May 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240509_election_dash_part_2-dashboard/20240509_election_dash_part_2-dashboard/</guid>
+      <guid>http://localhost:59413/posts/20240509_election_dash_part_2-dashboard/20240509_election_dash_part_2-dashboard/</guid>
       <description>The cleaned data is loadsed and the plot generating functions are refactored here. Then a dashboard is created using dash.</description>
       <content:encoded><![CDATA[<hr>
 <h3 id="creating-the-dashboard-using-dash">Creating the Dashboard using <code>dash</code></h3>
@@ -9090,10 +9106,10 @@ dtype: object
     
     <item>
       <title>Bayesian Time Series Analysis with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</link>
+      <link>http://localhost:59413/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</link>
       <pubDate>Sat, 02 Mar 2024 16:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</guid>
+      <guid>http://localhost:59413/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</guid>
       <description>This tutorial covers the fundamentals of Bayesian approaches to time series, model construction, and practical implementation, using real-world data for hands-on learning.</description>
       <content:encoded><![CDATA[<hr>
 <h2 id="introduction">Introduction</h2>
@@ -9319,10 +9335,10 @@ Quantiles
     
     <item>
       <title>Bayesian Poisson Regression with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20240217_bayesian_poisson_regression/20240217_bayesian_poisson_regression/</link>
+      <link>http://localhost:59413/posts/20240217_bayesian_poisson_regression/20240217_bayesian_poisson_regression/</link>
       <pubDate>Sat, 17 Feb 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240217_bayesian_poisson_regression/20240217_bayesian_poisson_regression/</guid>
+      <guid>http://localhost:59413/posts/20240217_bayesian_poisson_regression/20240217_bayesian_poisson_regression/</guid>
       <description>Explore Bayesian Poisson regression for modeling count data with Julia and Turing.jl. This tutorial includes model setup, implementation, and performance assessment with a practical example.</description>
       <content:encoded><![CDATA[<hr>
 <p>In this example, I am following the tutorials found in:</p>
@@ -9577,10 +9593,10 @@ b2: 10.342642711232362
     
     <item>
       <title>Bayesian Logistic Regression with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</link>
+      <link>http://localhost:59413/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</link>
       <pubDate>Tue, 09 Jan 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</guid>
+      <guid>http://localhost:59413/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</guid>
       <description>Applying Turing.jl package in Julia for a probabilistic approach to a classification problem on a real-world dataset.</description>
       <content:encoded><![CDATA[<hr>
 <h2 id="problem-statement">Problem Statement</h2>
@@ -10123,10 +10139,10 @@ Quantiles
     
     <item>
       <title>Bayesian Linear Regression with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</link>
+      <link>http://localhost:59413/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</link>
       <pubDate>Fri, 10 Nov 2023 14:53:29 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</guid>
+      <guid>http://localhost:59413/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/</guid>
       <description>Learn the basics of Bayesian linear regression using Julia and Turing.jl. This tutorial covers model formulation, implementation, and interpretation through a practical example.</description>
       <content:encoded><![CDATA[<hr>
 <h2 id="finding-a-linear-relationship-between-height-and-weight-using-bayesian-methods">Finding a Linear Relationship Between Height and Weight Using Bayesian Methods</h2>

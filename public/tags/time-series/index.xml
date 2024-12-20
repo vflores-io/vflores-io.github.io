@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Time Series on Victor Flores, PhD</title>
-    <link>http://localhost:1313/tags/time-series/</link>
+    <link>http://localhost:59413/tags/time-series/</link>
     <description>Recent content in Time Series on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Sat, 02 Mar 2024 16:57:07 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/time-series/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sat, 02 Mar 2024 16:57:07 +0800</lastBuildDate><atom:link href="http://localhost:59413/tags/time-series/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Bayesian Time Series Analysis with Julia and Turing.jl</title>
-      <link>http://localhost:1313/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</link>
+      <link>http://localhost:59413/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</link>
       <pubDate>Sat, 02 Mar 2024 16:57:07 +0800</pubDate>
       
-      <guid>http://localhost:1313/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</guid>
+      <guid>http://localhost:59413/posts/20240222_bayesian_time_series_analysis/20240222_bayesian_time_series_analysis/</guid>
       <description>This tutorial covers the fundamentals of Bayesian approaches to time series, model construction, and practical implementation, using real-world data for hands-on learning.</description>
       <content:encoded><![CDATA[<hr>
 <h2 id="introduction">Introduction</h2>
