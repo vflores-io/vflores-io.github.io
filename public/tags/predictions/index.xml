@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Predictions on Victor Flores, PhD</title>
-    <link>http://localhost:59413/tags/predictions/</link>
+    <link>http://localhost:1313/tags/predictions/</link>
     <description>Recent content in Predictions on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Mon, 27 May 2024 16:57:31 +0800</lastBuildDate><atom:link href="http://localhost:59413/tags/predictions/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Mon, 27 May 2024 16:57:31 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/predictions/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Bayesian Linear Regression with PyMC</title>
-      <link>http://localhost:59413/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</link>
+      <link>http://localhost:1313/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</link>
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
-      <guid>http://localhost:59413/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</guid>
+      <guid>http://localhost:1313/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</guid>
       <description>Learn the basics of Bayesian linear regression using the excellent PyMC Probabilistic Programming package. This focuses on model formulation in PyMC, interpretation, and how to make predictions on out-of-sample data.</description>
       <content:encoded><![CDATA[<p><a href="https://colab.research.google.com/github/vflores-io/Portfolio/blob/main/Bayesian%20Methods%20Tutorials/Python/PyMC/E01_BayLinReg/E01_BayLinReg_PyMC.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a></p>
 <hr>

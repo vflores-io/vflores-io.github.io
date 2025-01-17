@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>NumPyro on Victor Flores, PhD</title>
-    <link>http://localhost:59413/tags/numpyro/</link>
+    <link>http://localhost:1313/tags/numpyro/</link>
     <description>Recent content in NumPyro on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Tue, 24 Sep 2024 14:12:51 +0800</lastBuildDate><atom:link href="http://localhost:59413/tags/numpyro/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Tue, 24 Sep 2024 14:12:51 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/numpyro/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Bayesian Classification and Survival Analysis with NumPyro</title>
-      <link>http://localhost:59413/posts/20240924_numpyro_logreg_surv_analysis/np01_logreg_surv_analysis/</link>
+      <link>http://localhost:1313/posts/20240924_numpyro_logreg_surv_analysis/np01_logreg_surv_analysis/</link>
       <pubDate>Tue, 24 Sep 2024 14:12:51 +0800</pubDate>
       
-      <guid>http://localhost:59413/posts/20240924_numpyro_logreg_surv_analysis/np01_logreg_surv_analysis/</guid>
+      <guid>http://localhost:1313/posts/20240924_numpyro_logreg_surv_analysis/np01_logreg_surv_analysis/</guid>
       <description>Applying Bayesian Classification and Survival Analysis to the Cirrhosis Patient Dataset.</description>
       <content:encoded><![CDATA[<p><a href="https://colab.research.google.com/github/vflores-io/Portfolio/blob/main/Bayesian%20Methods%20Tutorials/Python/NumPyro/NP01_LogReg_Surv_Analysis/NP01_LogReg_Surv_Analysis.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a></p>
 <hr>

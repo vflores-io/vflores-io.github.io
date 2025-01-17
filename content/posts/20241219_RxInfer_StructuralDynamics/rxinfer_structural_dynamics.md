@@ -3,7 +3,7 @@ title = 'Kalman Filter and RxInfer for Structural Dynamics'
 date = 2024-12-18T09:52:15+07:00
 draft = false
 summary = "Implementing an AKF in Julia and RxInfer for Structural Dyanmics analysis."
-tags = ["RxInfer", "Structural Dynamics", "Kalman Filter", "Bayesian Filter", "Julia", "Civil Engineering", "Structural Analysis", "Dynamical Analysis"]
+tags = ["RxInfer", "Structural Dynamics", "Kalman Filter", "Bayesian Filter", "Julia", "Civil Engineering", "Structural Analysis", "Dynamical Analysis", "State Space Modeling"]
 +++
 
 ## State and Input Estimation with RxInfer

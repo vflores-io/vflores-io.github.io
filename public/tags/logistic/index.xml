@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>Logistic on Victor Flores, PhD</title>
-    <link>http://localhost:59413/tags/logistic/</link>
+    <link>http://localhost:1313/tags/logistic/</link>
     <description>Recent content in Logistic on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Tue, 09 Jan 2024 11:57:07 +0800</lastBuildDate><atom:link href="http://localhost:59413/tags/logistic/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Tue, 09 Jan 2024 11:57:07 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/logistic/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Bayesian Logistic Regression with Julia and Turing.jl</title>
-      <link>http://localhost:59413/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</link>
+      <link>http://localhost:1313/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</link>
       <pubDate>Tue, 09 Jan 2024 11:57:07 +0800</pubDate>
       
-      <guid>http://localhost:59413/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</guid>
+      <guid>http://localhost:1313/posts/20240109_bayesian-logistic-regression/20240109_bayesian-logistic-regression/</guid>
       <description>Applying Turing.jl package in Julia for a probabilistic approach to a classification problem on a real-world dataset.</description>
       <content:encoded><![CDATA[<hr>
 <h2 id="problem-statement">Problem Statement</h2>
