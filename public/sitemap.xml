@@ -2,6 +2,51 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>http://localhost:1313/posts/20250208_theremin_mediapipe/theremin_mediapipe/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/computer-vision/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/creative-coding/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/gesture-control/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/hand-tracking/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/interactive-music/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/machine-learning/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/mediapipe/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/opencv/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/osc/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/pure-data/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/python/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/</loc>
+    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
+  </url><url>
     <loc>http://localhost:1313/tags/audio-processing/</loc>
     <lastmod>2025-01-15T09:52:15+07:00</lastmod>
   </url><url>
@@ -20,22 +65,13 @@
     <loc>http://localhost:1313/tags/kalman-filter/</loc>
     <lastmod>2025-01-15T09:52:15+07:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/posts/</loc>
-    <lastmod>2025-01-15T09:52:15+07:00</lastmod>
-  </url><url>
     <loc>http://localhost:1313/tags/rxinfer/</loc>
     <lastmod>2025-01-15T09:52:15+07:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/tags/state-space-modeling/</loc>
     <lastmod>2025-01-15T09:52:15+07:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/tags/</loc>
-    <lastmod>2025-01-15T09:52:15+07:00</lastmod>
-  </url><url>
     <loc>http://localhost:1313/tags/time-series/</loc>
-    <lastmod>2025-01-15T09:52:15+07:00</lastmod>
-  </url><url>
-    <loc>http://localhost:1313/</loc>
     <lastmod>2025-01-15T09:52:15+07:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/tags/civil-engineering/</loc>
@@ -93,9 +129,6 @@
     <lastmod>2024-05-21T22:38:29+08:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/tags/flux.jl/</loc>
-    <lastmod>2024-05-21T22:38:29+08:00</lastmod>
-  </url><url>
-    <loc>http://localhost:1313/tags/machine-learning/</loc>
     <lastmod>2024-05-21T22:38:29+08:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/tags/transfer-learning/</loc>

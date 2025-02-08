@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Interactive Music on Victor Flores, PhD</title>
+    <link>http://localhost:1313/tags/interactive-music/</link>
+    <description>Recent content in Interactive Music on Victor Flores, PhD</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <lastBuildDate>Fri, 07 Feb 2025 19:52:15 +0700</lastBuildDate><atom:link href="http://localhost:1313/tags/interactive-music/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Building a Virtual Theremin with MediaPipe and Pure Data</title>
+      <link>http://localhost:1313/posts/20250208_theremin_mediapipe/theremin_mediapipe/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/posts/20250208_theremin_mediapipe/theremin_mediapipe/</guid>
+      <description>Using hand tracking to create a virtual theremin with MediaPipe and Pure Data.</description>
+      <content:encoded><![CDATA[<p>I recently worked on a fun project where I used <strong>MediaPipe</strong> for finger tracking and interfaced it with <strong>Pure Data</strong> to create a simple virtual theremin. The idea was to control pitch and volume using hand movements, without touching any physical object.</p>
+<p>This blog post provides an overview of the project, the steps I followed, and a few code snippets to illustrate key aspects of the implementation.</p>
+<hr>
+<h2 id="demo-video">Demo Video</h2>
+<p>Before diving into the details, check out a quick demo of the theremin in action:</p>
+<video width="100%" controls>
+  <source src="/videos/theremin_puredata.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+<h2 id="project-overview">Project Overview</h2>
+<p>A theremin is a touchless musical instrument that produces sound based on the position of the player&rsquo;s hands. For this project, I used:</p>
+<ul>
+<li><strong>MediaPipe Hand Tracking</strong> to detect finger positions</li>
+<li><strong>OpenCV</strong> to visualize the hand movements</li>
+<li><strong>OSC (Open Sound Control)</strong> to send data to <strong>Pure Data</strong>, which handled the sound synthesis</li>
+</ul>
+<p>The result is a simple but effective virtual instrument that lets you manipulate sound using only hand gestures.</p>
+<hr>
+<h2 id="how-it-works">How It Works</h2>
+<ol>
+<li><strong>Track Hand Landmarks:</strong> Using MediaPipe, we detect hands and extract the positions of key landmarks (fingertips, wrist, etc.).</li>
+<li><strong>Define Control Areas:</strong> We set up an <strong>ON/OFF button</strong> on the screen to enable or disable sound.</li>
+<li><strong>Map Hand Movements to Sound Parameters:</strong>
+<ul>
+<li>Left hand controls <strong>volume</strong> (vertical movement).</li>
+<li>Right hand controls <strong>pitch</strong> (horizontal movement).</li>
+</ul>
+</li>
+<li><strong>Send Data to Pure Data:</strong> We use OSC messages to send pitch and volume values to a Pure Data patch (not disclosed here).</li>
+</ol>
+<hr>
+<h2 id="key-code-snippets">Key Code Snippets</h2>
+<h3 id="1-tracking-hand-landmarks-with-mediapipe">1. Tracking Hand Landmarks with MediaPipe</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">mediapipe</span> <span class="k">as</span> <span class="nn">mp</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">cv2</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mp_hands</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">solutions</span><span class="o">.</span><span class="n">hands</span>
+</span></span><span class="line"><span class="cl"><span class="n">hands</span> <span class="o">=</span> <span class="n">mp_hands</span><span class="o">.</span><span class="n">Hands</span><span class="p">(</span><span class="n">min_detection_confidence</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">min_tracking_confidence</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">cap</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">VideoCapture</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">while</span> <span class="n">cap</span><span class="o">.</span><span class="n">isOpened</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="n">ret</span><span class="p">,</span> <span class="n">frame</span> <span class="o">=</span> <span class="n">cap</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="ow">not</span> <span class="n">ret</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">break</span>
+</span></span><span class="line"><span class="cl">    <span class="n">frame_rgb</span> <span class="o">=</span> <span class="n">cv2</span><span class="o">.</span><span class="n">cvtColor</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">cv2</span><span class="o">.</span><span class="n">COLOR_BGR2RGB</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">results</span> <span class="o">=</span> <span class="n">hands</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">frame_rgb</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">results</span><span class="o">.</span><span class="n">multi_hand_landmarks</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">hand_landmarks</span> <span class="ow">in</span> <span class="n">results</span><span class="o">.</span><span class="n">multi_hand_landmarks</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">            <span class="c1"># Process landmarks here</span>
+</span></span><span class="line"><span class="cl">            <span class="k">pass</span>
+</span></span><span class="line"><span class="cl">    <span class="n">cv2</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="s2">&#34;Hand Tracking&#34;</span><span class="p">,</span> <span class="n">frame</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">cv2</span><span class="o">.</span><span class="n">waitKey</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFF</span> <span class="o">==</span> <span class="nb">ord</span><span class="p">(</span><span class="s2">&#34;q&#34;</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">break</span>
+</span></span><span class="line"><span class="cl"><span class="n">cap</span><span class="o">.</span><span class="n">release</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="n">cv2</span><span class="o">.</span><span class="n">destroyAllWindows</span><span class="p">()</span>
+</span></span></code></pre></div><p>This snippet initializes the webcam, processes frames, and detects hands in real time.</p>
+<hr>
+<h3 id="2-detecting-button-presses-for-onoff-controls">2. Detecting Button Presses for ON/OFF Controls</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">check_button_press</span><span class="p">(</span><span class="n">landmarks</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">index_tip</span> <span class="o">=</span> <span class="n">landmarks</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">middle_tip</span> <span class="o">=</span> <span class="n">landmarks</span><span class="p">[</span><span class="mi">12</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">index_coords</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">index_tip</span><span class="o">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">width</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">index_tip</span><span class="o">.</span><span class="n">y</span> <span class="o">*</span> <span class="n">height</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">middle_coords</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">middle_tip</span><span class="o">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">width</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">middle_tip</span><span class="o">.</span><span class="n">y</span> <span class="o">*</span> <span class="n">height</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dist_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">index_coords</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">center</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dist_middle</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">middle_coords</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">center</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">dist_index</span> <span class="o">&lt;=</span> <span class="n">radius</span> <span class="ow">and</span> <span class="n">dist_middle</span> <span class="o">&lt;=</span> <span class="n">radius</span>
+</span></span></code></pre></div><p>This function checks whether both the index and middle fingers are inside a circular region, acting as an ON/OFF switch.</p>
+<hr>
+<h3 id="3-mapping-hand-movements-to-sound-parameters">3. Mapping Hand Movements to Sound Parameters</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">map_hand_to_pitch_or_volume</span><span class="p">(</span><span class="n">handedness</span><span class="p">,</span> <span class="n">index_tip_coords</span><span class="p">,</span> <span class="n">ring_tip_coords</span><span class="p">,</span> <span class="n">height</span><span class="p">,</span> <span class="n">width</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span> <span class="n">handedness</span> <span class="o">==</span> <span class="s1">&#39;Right&#39;</span><span class="p">:</span>  <span class="c1"># Left hand for volume</span>
+</span></span><span class="line"><span class="cl">        <span class="n">normalized_y</span> <span class="o">=</span> <span class="n">ring_tip_coords</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">height</span>
+</span></span><span class="line"><span class="cl">        <span class="n">volume</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">normalized_y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="n">volume</span>
+</span></span><span class="line"><span class="cl">    <span class="k">elif</span> <span class="n">handedness</span> <span class="o">==</span> <span class="s1">&#39;Left&#39;</span><span class="p">:</span>  <span class="c1"># Right hand for pitch</span>
+</span></span><span class="line"><span class="cl">        <span class="n">normalized_x</span> <span class="o">=</span> <span class="n">index_tip_coords</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">width</span>
+</span></span><span class="line"><span class="cl">        <span class="n">pitch</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mi">127</span> <span class="o">*</span> <span class="p">(</span><span class="n">normalized_x</span><span class="p">))</span>  <span class="c1"># Map to MIDI range</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span> <span class="n">pitch</span><span class="p">,</span> <span class="kc">None</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+</span></span></code></pre></div><p>This function maps <strong>vertical movement</strong> of the left hand to <strong>volume</strong> and <strong>horizontal movement</strong> of the right hand to <strong>pitch</strong>.</p>
+<hr>
+<h2 id="final-thoughts">Final Thoughts</h2>
+<p>This was a blast to build! There’s something very satisfying about making noise by just waving your hands around like some kind of musical wizard. I’m keeping the details of the Pure Data setup out of this post for brevity (a little mystery never hurt anyone), but the core idea is simple: detect hands, map motion to sound, and have fun.</p>
+<p>If you have any thoughts, ideas, or want to <strong>collaborate to expand this project</strong>, reach out! I’d love to hear what you think and see where we can take this next.</p>
+<hr>
+]]></content:encoded>
+    </item>
+    
+  </channel>
+</rss>

@@ -6,7 +6,117 @@
     <description>Recent content in Tags on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Wed, 15 Jan 2025 09:52:15 +0700</lastBuildDate><atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Fri, 07 Feb 2025 19:52:15 +0700</lastBuildDate><atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Computer Vision</title>
+      <link>http://localhost:1313/tags/computer-vision/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/computer-vision/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Creative Coding</title>
+      <link>http://localhost:1313/tags/creative-coding/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/creative-coding/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Gesture Control</title>
+      <link>http://localhost:1313/tags/gesture-control/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/gesture-control/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Hand Tracking</title>
+      <link>http://localhost:1313/tags/hand-tracking/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/hand-tracking/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Interactive Music</title>
+      <link>http://localhost:1313/tags/interactive-music/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/interactive-music/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Machine Learning</title>
+      <link>http://localhost:1313/tags/machine-learning/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/machine-learning/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>MediaPipe</title>
+      <link>http://localhost:1313/tags/mediapipe/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/mediapipe/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>OpenCV</title>
+      <link>http://localhost:1313/tags/opencv/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/opencv/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>OSC</title>
+      <link>http://localhost:1313/tags/osc/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/osc/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Pure Data</title>
+      <link>http://localhost:1313/tags/pure-data/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/pure-data/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Python</title>
+      <link>http://localhost:1313/tags/python/</link>
+      <pubDate>Fri, 07 Feb 2025 19:52:15 +0700</pubDate>
+      
+      <guid>http://localhost:1313/tags/python/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
     <item>
       <title>Audio Processing</title>
       <link>http://localhost:1313/tags/audio-processing/</link>
@@ -243,16 +353,6 @@
       <pubDate>Tue, 21 May 2024 22:38:29 +0800</pubDate>
       
       <guid>http://localhost:1313/tags/flux.jl/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-    </item>
-    
-    <item>
-      <title>Machine Learning</title>
-      <link>http://localhost:1313/tags/machine-learning/</link>
-      <pubDate>Tue, 21 May 2024 22:38:29 +0800</pubDate>
-      
-      <guid>http://localhost:1313/tags/machine-learning/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>
