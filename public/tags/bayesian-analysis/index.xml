@@ -15,8 +15,95 @@
       <guid>http://localhost:1313/posts/20250502_bayesian_priors/bayesian_priors/</guid>
       <description>How to choose your priors.</description>
       <content:encoded><![CDATA[<h1 id="title-here">Title Here</h1>
-<h2 id="subtitle-here">Subtitle here</h2>
-<p>bla bla</p>
+<h2 id="step-1-start-with-the-data">Step 1: Start with the data</h2>
+<p>Before we even get to choosing priors, we need to backup a bit and ask:</p>
+<blockquote>
+<p><strong>What kind of process do I believe created the observations I see?</strong></p></blockquote>
+<p>This is your <em>generative model</em>, and is what determines your <em>likelihood</em>. It explains how your data came to be.</p>
+<p>The <em>likelihood</em> is just a term for:</p>
+<blockquote>
+<p><strong>Given some unknown parameters, what&rsquo;s the probability of observing the data I actually saw?</strong></p></blockquote>
+<h3 id="so-how-do-you-pick-a-likelihood">So how do you pick a likelihood?</h3>
+<p>Start by looking at the <strong>type of data you are modeling</strong>. That usually points to a small set of reasonable choices. Let&rsquo;s look at a few examples:</p>
+<ul>
+<li>
+<p>If your data is a <strong>count</strong> (like the number of cars crossing a bridge each hour, or the number of people voting in an election), you might assume that the data generation process follows a <strong>Poisson distribution</strong>. Thus, your model might include a <em>rate</em> parameter: something that should be <em>positive</em> (can&rsquo;t have a negative number of cars!).</p>
+</li>
+<li>
+<p>If your data is a <strong>continuous measurement</strong> (like height, weight, or temperature), a suitable candidate to explain the data generation might be a <strong>Normal distribution</strong>. A model under this assumption might include a <em>mean</em> (any real number) and a <em>spread</em> (standard deviation or variance, which must be positive).</p>
+</li>
+<li>
+<p>If your data is a <strong>proportion</strong> or a <strong>yes/no outcome</strong> (like conversion rates or coin flips), you might assume a <strong>Bernoulli</strong> or <strong>Binomial distribution</strong>. In this case, your model would include a <em>probability</em> parameter that must lie between 0 and 1.</p>
+</li>
+</ul>
+<p>Each of these cases leads to a likelihood; each likelihood comes with one or more <strong>parameters</strong></p>
+<h3 id="so-where-do-priors-come-in">So where do priors come in?</h3>
+<p>These parameters are the things you don&rsquo;t know yet. They are what you are trying to estimate using both your data <em>and</em> your prior beliefs (about the parameters).</p>
+<p>That&rsquo;s where <strong>priors</strong> come in. Let&rsquo;s look into how to choose them next.</p>
+<h2 id="step-2-choose-priors-for-your-parameters">Step 2: Choose priors for your parameters</h2>
+<p>Once you&rsquo;ve picked a likelihood and figured out which parameters your model includes, it&rsquo;s time to ask:</p>
+<blockquote>
+<p><strong>What do I believe about these parameters before seeing the data?</strong></p></blockquote>
+<p>That belief - or uncertainty - is expressed through a <strong>prior distribution</strong>. In simple words, this is a distribution that you assign to each of the parameters that make up the likelihood, and which reflect what you know about them.</p>
+<p>In Bayesian statistics, we always start with a prior. This is not optional. It is part of what makes the approach powerful and honest: it forces you to say what you <em>do</em> or <em>do not</em> know before looking at the data.</p>
+<h3 id="what-should-guide-your-choice-of-prior">What should guide your choice of prior?</h3>
+<p>There are two key things to keep in mind:</p>
+<ol>
+<li><strong>What kind of parameter is it?</strong>
+This tells you what kind of values the prior is even <em>allowed</em> to take.</li>
+<li><strong>How much do you already know (or not know)?</strong>
+This helps you decide how <em>tight</em> or <em>vague</em> your prior should be. In other words, how much (un)certainty there is around your parameter.</li>
+</ol>
+<h4 id="lets-break-it-down">Let&rsquo;s break it down</h4>
+<h5 id="first-respect-the-domain-of-the-parameter">First: Respect the domain of the parameter</h5>
+<ul>
+<li>If the parameter must be <strong>positive</strong> (like a rate or standard deviation), your prior should only take on positive values. Common choices include the <strong>Exponential</strong>, <strong>Gamma</strong>, or <strong>Half-Normal</strong> distributions.</li>
+<li>If the parameter is a <strong>probability</strong> (like the chance someone clicks a button on a website), the prior must live between 0 and 1. A <strong>Beta distribution</strong> is a natural choice here.</li>
+<li>If the parameter can be <strong>any real number</strong> (like a mean value), you can use a <strong>Normal distribution</strong> centered somewhere reasonable, with a standard deviation wide enough to reflect your uncertainty (i.e., what you know about that parameter).</li>
+</ul>
+<h5 id="second-ask-yourself-what-you-know">Second: Ask yourself what you know</h5>
+<p>Once you&rsquo;ve got the domain right, the next step is to think about <strong>how much prior knowledge you have</strong>.</p>
+<ul>
+<li>
+<p><strong>If you have strong prior knowledge</strong>, maybe from previous studies, engineering constraints, expert judgment, etc., then use an <em>informative prior</em>. For example, if you know that most defect rates are below 5%, you can use a Beta distribution that concentrates most of its mass below 0.05.</p>
+</li>
+<li>
+<p><strong>If you have <em>some</em> idea</strong>, but you&rsquo;re not very confident, use a <em>weakly informative prior</em>. These are broad, reasonable guesses that act as gentle regularizers. They help keep estimates from going completely off the rails in small-data situations, but still let the data speak.</p>
+</li>
+<li>
+<p><strong>If you know basically nothing</strong>, it&rsquo;s tempting to use a so-called <em>non-informative prior</em>. These include things like flat/uniform distributions, or more technical choices like <em>Jeffreys priors</em>. But be careful: these can sometimes behave badly, especially in small samples or complex models.</p>
+</li>
+</ul>
+<h5 id="priors-matter-more-when-you-have-less-data">Priors matter more when you have less data</h5>
+<p>When you have <strong>lots of data</strong>, the influence of the prior usually fades. In such cases, the likelihood dominates, and the posterior is driven by the data.</p>
+<p>But when data is <strong>scarce</strong>, your prior can have a big impact. That is not a flaw, that&rsquo;s the model honestly reflecting uncertainty.</p>
+<h5 id="how-do-you-check-if-your-priors-make-sense">How do you <em>check</em> if your priors make sense?</h5>
+<p>Even a reasonable-sounding prior can produce weird results when combined with your model.</p>
+<p>That&rsquo;s why the next step is so important: <strong>prior predictive checks</strong>. Let&rsquo;s have a look.</p>
+<h2 id="step-3-check-your-prior---prior-predictive-checks">Step 3: Check your prior - Prior predictive checks</h2>
+<p>You&rsquo;ve chosen your likelihood, and you&rsquo;ve assigned priors to your parameters. Cool! Solid start.</p>
+<p>But here&rsquo;s the next important question:</p>
+<blockquote>
+<p><strong>Do your priors make sense <em>in the context of your model</em>?</strong></p></blockquote>
+<p>Even if each prior seems reasonable on its own, their combination, i.e., once passed through your <em>model</em>, might produce predictions that are complete mumbo jumbo.</p>
+<p>This is where <strong>prior predictive checks</strong> come in.</p>
+<h3 id="what-is-a-prior-predictive-check">What is a prior predictive check?</h3>
+<p>A <strong>prior predictive check</strong> is when you generate fake data (yes, I know, don&rsquo;t take out the pitchfork!) <em>before</em> seeing the real data, using:</p>
+<ul>
+<li>your <strong>model structure</strong> (i.e., your likeliehood, a.k.a. your generative model&hellip; starts painting a picture?)</li>
+<li>and your <strong>priors</strong></li>
+</ul>
+<p>In other words, you&rsquo;re simulating data from your model <strong>as if</strong> the priors were true. This gives you a sense of what kinds of observations your model considers plausible, even before seeing any real data.</p>
+<blockquote>
+<p>**If your model is saying &ldquo;yeah, human heights of 10 meters sound plausible,&rdquo; that&rsquo;s a red flag.</p></blockquote>
+<h3 id="why-is-this-helpful">Why is this helpful?</h3>
+<p>Because it lets you <strong>test your assumptions before committing to them.</strong></p>
+<ul>
+<li>Are your priors too wide, allowing impossible or absurd values?</li>
+<li>Are they too narrow, ruling out reasonable possibilities?</li>
+<li>Are they combining in weird ways through the model?</li>
+</ul>
+<p>A prior predictive check helps catch these issues early, before they distort your inferences.</p>
 ]]></content:encoded>
     </item>
     
