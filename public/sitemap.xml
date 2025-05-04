@@ -2,6 +2,48 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>http://localhost:1313/tags/bayesian-modeling/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/bayesian-statistics/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/20250502_bayesian_priors/bayesian_priors/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/data-science/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/inference/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/posterior-predictive/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/posts/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/priors/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/probabilistic-programming/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/pydata/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/pymc/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/tags/tutorial/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
+    <loc>http://localhost:1313/</loc>
+    <lastmod>2025-05-04T10:15:00+08:00</lastmod>
+  </url><url>
     <loc>http://localhost:1313/posts/20250208_theremin_mediapipe/theremin_mediapipe/</loc>
     <lastmod>2025-02-07T19:52:15+07:00</lastmod>
   </url><url>
@@ -32,19 +74,10 @@
     <loc>http://localhost:1313/tags/osc/</loc>
     <lastmod>2025-02-07T19:52:15+07:00</lastmod>
   </url><url>
-    <loc>http://localhost:1313/posts/</loc>
-    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
-  </url><url>
     <loc>http://localhost:1313/tags/pure-data/</loc>
     <lastmod>2025-02-07T19:52:15+07:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/tags/python/</loc>
-    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
-  </url><url>
-    <loc>http://localhost:1313/tags/</loc>
-    <lastmod>2025-02-07T19:52:15+07:00</lastmod>
-  </url><url>
-    <loc>http://localhost:1313/</loc>
     <lastmod>2025-02-07T19:52:15+07:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/tags/audio-processing/</loc>
@@ -117,9 +150,6 @@
     <lastmod>2024-05-27T16:57:31+08:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/tags/predictive-posterior/</loc>
-    <lastmod>2024-05-27T16:57:31+08:00</lastmod>
-  </url><url>
-    <loc>http://localhost:1313/tags/pymc/</loc>
     <lastmod>2024-05-27T16:57:31+08:00</lastmod>
   </url><url>
     <loc>http://localhost:1313/tags/regression/</loc>

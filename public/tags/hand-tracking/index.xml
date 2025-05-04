@@ -42,7 +42,7 @@
 <li>Right hand controls <strong>pitch</strong> (horizontal movement).</li>
 </ul>
 </li>
-<li><strong>Send Data to Pure Data:</strong> We use OSC messages to send pitch and volume values to a Pure Data patch (not disclosed here).</li>
+<li><strong>Send Data to Pure Data:</strong> We use OSC messages to send pitch and volume values to a Pure Data patch, where they are converted into sound. The patch takes these values, processes them, and routes them to an oscillator and an amplitude controller, translating hand gestures into musical notes. This setup mimics the behavior of a real theremin, producing pitch and volume variations.</li>
 </ol>
 <hr>
 <h2 id="key-code-snippets">Key Code Snippets</h2>
@@ -96,8 +96,8 @@
 </span></span></code></pre></div><p>This function maps <strong>vertical movement</strong> of the left hand to <strong>volume</strong> and <strong>horizontal movement</strong> of the right hand to <strong>pitch</strong>.</p>
 <hr>
 <h2 id="final-thoughts">Final Thoughts</h2>
-<p>This was a blast to build! There’s something very satisfying about making noise by just waving your hands around like some kind of musical wizard. I’m keeping the details of the Pure Data setup out of this post for brevity (a little mystery never hurt anyone), but the core idea is simple: detect hands, map motion to sound, and have fun.</p>
-<p>If you have any thoughts, ideas, or want to <strong>collaborate to expand this project</strong>, reach out! I’d love to hear what you think and see where we can take this next.</p>
+<p>This was a blast to build! There’s something very satisfying about making noise by just waving your hands around like some kind of musical wizard. I’m keeping the details of the Pure Data setup out of this post for brevity (and hey, a little mystery never hurt anyone), but the core idea is simple: detect hands, map motion to sound, and have fun.</p>
+<p>If you have any thoughts, ideas, or want to collaborate to expand this project, reach out! I’d love to hear what you think and see where we can take this next.</p>
 <hr>
 ]]></content:encoded>
     </item>

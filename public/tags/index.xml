@@ -6,7 +6,107 @@
     <description>Recent content in Tags on Victor Flores, PhD</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en</language>
-    <lastBuildDate>Fri, 07 Feb 2025 19:52:15 +0700</lastBuildDate><atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Sun, 04 May 2025 10:15:00 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Bayesian Modeling</title>
+      <link>http://localhost:1313/tags/bayesian-modeling/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/bayesian-modeling/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Bayesian Statistics</title>
+      <link>http://localhost:1313/tags/bayesian-statistics/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/bayesian-statistics/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Data Science</title>
+      <link>http://localhost:1313/tags/data-science/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/data-science/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Inference</title>
+      <link>http://localhost:1313/tags/inference/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/inference/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Posterior Predictive</title>
+      <link>http://localhost:1313/tags/posterior-predictive/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/posterior-predictive/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Priors</title>
+      <link>http://localhost:1313/tags/priors/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/priors/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Probabilistic Programming</title>
+      <link>http://localhost:1313/tags/probabilistic-programming/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/probabilistic-programming/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>PyData</title>
+      <link>http://localhost:1313/tags/pydata/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/pydata/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>PyMC</title>
+      <link>http://localhost:1313/tags/pymc/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/pymc/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Tutorial</title>
+      <link>http://localhost:1313/tags/tutorial/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/tags/tutorial/</guid>
+      <description></description>
+      <content:encoded><![CDATA[]]></content:encoded>
+    </item>
+    
     <item>
       <title>Computer Vision</title>
       <link>http://localhost:1313/tags/computer-vision/</link>
@@ -313,16 +413,6 @@
       <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
       
       <guid>http://localhost:1313/tags/predictive-posterior/</guid>
-      <description></description>
-      <content:encoded><![CDATA[]]></content:encoded>
-    </item>
-    
-    <item>
-      <title>PyMC</title>
-      <link>http://localhost:1313/tags/pymc/</link>
-      <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
-      
-      <guid>http://localhost:1313/tags/pymc/</guid>
       <description></description>
       <content:encoded><![CDATA[]]></content:encoded>
     </item>

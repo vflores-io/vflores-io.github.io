@@ -2719,8 +2719,7 @@ NUTS: [alpha, beta, sigma]
 <h3 id="visualize-the-results">Visualize the results</h3>
 <p>Now that we have posterior distributions for the parameters $\theta$, we can plot the the resulting linear regression functions. The following is an excerpt from PyMC&rsquo;s <a href="https://www.pymc.io/projects/docs/en/stable/learn/core_notebooks/GLM_linear.html">Generalized Linear Regression tutorial</a>:</p>
 <blockquote>
-<p>In GLMs, we do not only have one best fitting regression line, but many. A posterior predictive plot takes multiple samples from the posterior (intercepts and slopes) and plots a regression line for each of them. We can manually generate these regression lines using the posterior samples directly.</p>
-</blockquote>
+<p>In GLMs, we do not only have one best fitting regression line, but many. A posterior predictive plot takes multiple samples from the posterior (intercepts and slopes) and plots a regression line for each of them. We can manually generate these regression lines using the posterior samples directly.</p></blockquote>
 <p>Below, what we will effectively be doing is:</p>
 <p>$$ y_i = \alpha_i + \beta_i \mathbf{X} \ \ \ , \ \ \ {i = 1, \ldots , N_{samples}}$$</p>
 <p>where $N_{samples}$ are the number of samples from the posterior. This number comes from the inference procedure, and in practical terms is the umber of samples we asked <code>PyMC</code> to produce.</p>
@@ -2821,8 +2820,7 @@ NUTS: [alpha, beta, sigma]
 <p>$$ y_{i+1} = \alpha_{i+1} + \beta_{i+1} x^* $$</p>
 <p>where $x^*$ is a test input point. In other words, and more specific to this demonstration:</p>
 <blockquote>
-<p>what is the <em>interval</em> where we would expect a predicted weight $y_{i+1}$ of an individual with a height $x*$.</p>
-</blockquote>
+<p>what is the <em>interval</em> where we would expect a predicted weight $y_{i+1}$ of an individual with a height $x*$.</p></blockquote>
 <div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># use the posterior to create regression line samples</span>
 </span></span><span class="line"><span class="cl"><span class="c1"># trace.posterior[&#34;y_posterior&#34;] = trace.posterior[&#34;alpha&#34;] + trace.posterior[&#34;beta&#34;]*xr.DataArray(height)  # y_posterior = alpha + beta*x</span>
 </span></span><span class="line"><span class="cl"><span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="mi">7</span><span class="p">))</span>
@@ -2842,7 +2840,7 @@ NUTS: [alpha, beta, sigma]
 </span></span><span class="line"><span class="cl">
 </span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
 </span></span></code></pre></div><p><img loading="lazy" src="/images/20240527_BayLinReg_PyMC/output_30_0.png" type="" alt="png"  /></p>
-<h3 id="making-predictions-on-_unobserved-data-inputs_">Making Predictions on <em>Unobserved Data Inputs</em></h3>
+<h3 id="making-predictions-on-unobserved-data-inputs">Making Predictions on <em>Unobserved Data Inputs</em></h3>
 <p>Now, how about the case when we want to make predictions on test data that we have not seen? That is, predict the weight of an individual whose height/weight we have not observed (measured)</p>
 <p>In other words, we have some test input data, i.e. some heights for which we want to predict the weights.</p>
 <p>Some references of where I learned how to do this:</p>

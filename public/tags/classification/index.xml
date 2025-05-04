@@ -3148,8 +3148,7 @@ Total image files in test: 55
 <p><strong>NOTE:</strong> At this point, it is important to know what is the model or CNN architecture we will be using. Important aspects to consider include the image size, any data transformations for training and validation, data augmentation techniques, and setting up data loaders later.</p>
 <p>In this example, we will use <code>ResNet18 </code>. The inputs must follow a specific format, as per the PyTorch ResNet documentation found <a href="https://pytorch.org/hub/pytorch_vision_resnet/">here</a>:</p>
 <blockquote>
-<p>All pre-trained models expect input images normalized in the same way, i.e. mini-batches of 3-channel RGB images of shape <code>(3 x H x W)</code>, where <code>H</code> and <code>W</code> are expected to be at least 224. The images have to be loaded in to a range of <code>[0, 1]</code> and then normalized using <code>mean = [0.485, 0.456, 0.406]</code> and <code>std = [0.229, 0.224, 0.225]</code>.</p>
-</blockquote>
+<p>All pre-trained models expect input images normalized in the same way, i.e. mini-batches of 3-channel RGB images of shape <code>(3 x H x W)</code>, where <code>H</code> and <code>W</code> are expected to be at least 224. The images have to be loaded in to a range of <code>[0, 1]</code> and then normalized using <code>mean = [0.485, 0.456, 0.406]</code> and <code>std = [0.229, 0.224, 0.225]</code>.</p></blockquote>
 <h3 id="tools-for-data-preprocessing-in-pytorch">Tools for Data Preprocessing in PyTorch</h3>
 <ul>
 <li><code>torchvision.transforms</code>: Provides common image transformations like resizing, normalization, and augmentation.</li>
