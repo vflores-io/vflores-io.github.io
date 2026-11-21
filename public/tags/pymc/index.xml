@@ -1,0 +1,1053 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>PyMC on Victor Flores, PhD</title>
+    <link>http://localhost:1313/tags/pymc/</link>
+    <description>Recent content in PyMC on Victor Flores, PhD</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en</language>
+    <lastBuildDate>Sun, 04 May 2025 10:15:00 +0800</lastBuildDate><atom:link href="http://localhost:1313/tags/pymc/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Choosing Priors in Bayesian Analysis: A Gentle Guide</title>
+      <link>http://localhost:1313/posts/20250502_bayesian_priors/bayesian_priors/</link>
+      <pubDate>Sun, 04 May 2025 10:15:00 +0800</pubDate>
+      
+      <guid>http://localhost:1313/posts/20250502_bayesian_priors/bayesian_priors/</guid>
+      <description>A practical, example-driven walkthrough on how to choose priors in Bayesian modeling with real data, PyMC code, and a few lessons learned along the way.</description>
+      <content:encoded><![CDATA[<p>After my talk at <strong>PyCon DE &amp; PyData 2025</strong> in Darmstadt — titled <em>&ldquo;Getting Started with Bayes in Engineering&rdquo;</em>, I had some great conversations with attendees who were curious, about the role of <strong>priors</strong> in Bayesian modeling. In other instances, I have also seen some skepticism on this topic.</p>
+<p>It became clear to me that for many newcomers, the idea of &ldquo;choosing a prior&rdquo; feels confusing, subjective, or even unscientific. And I get it, I remember struggling with that too.</p>
+<p>So I decided to write this blog post to walk through how I personally think about prior selection, and what has helped me make sense of it. This isn&rsquo;t the only way to do it, of course, but it&rsquo;s a practical, honest approach that balances intuition, data, and model behavior.</p>
+<p>Along the way, we’ll use a real dataset (human heights and weights), build a few simple models in PyMC, and perform both <strong>prior</strong> and <strong>posterior predictive checks</strong> to see how our assumptions play out.</p>
+<blockquote>
+<p>🔍 <strong>Note</strong>: The code in this post is adapted and extended from the <a href="https://www.pymc.io/projects/docs/en/stable/learn/core_notebooks/posterior_predictive.html">PyMC documentation on predictive checks</a> — which is a great reference if you want to go deeper.</p></blockquote>
+<p>Let’s get started by asking a simple question:<br>
+<strong>What kind of process do I believe generated the data I’m looking at?</strong></p>
+<hr>
+<h2 id="start-with-the-data">Start with the data</h2>
+<p>Before we even get to choosing priors, we need to backup a bit and ask:</p>
+<blockquote>
+<p><strong>What kind of process do I believe created the observations I see?</strong></p></blockquote>
+<p>This is your <em>generative model</em>, and is what determines your <em>likelihood</em>. It explains how your data came to be.</p>
+<p>The <em>likelihood</em> is just a term for:</p>
+<blockquote>
+<p><strong>Given some unknown parameters, what&rsquo;s the probability of observing the data I actually saw?</strong></p></blockquote>
+<h3 id="so-how-do-you-pick-a-likelihood">So how do you pick a likelihood?</h3>
+<p>Start by looking at the <strong>type of data you are modeling</strong>. That usually points to a small set of reasonable choices. Let&rsquo;s look at a few examples:</p>
+<ul>
+<li>
+<p>If your data is a <strong>count</strong> (like the number of cars crossing a bridge each hour, or the number of people voting in an election), you might assume that the data generation process follows a <strong>Poisson distribution</strong>. Thus, your model might include a <em>rate</em> parameter: something that should be <em>positive</em> (can&rsquo;t have a negative number of cars!).</p>
+</li>
+<li>
+<p>If your data is a <strong>continuous measurement</strong> (like height, weight, or temperature), a suitable candidate to explain the data generation might be a <strong>Normal distribution</strong>. A model under this assumption might include a <em>mean</em> (any real number) and a <em>spread</em> (standard deviation or variance, which must be positive).</p>
+</li>
+<li>
+<p>If your data is a <strong>proportion</strong> or a <strong>yes/no outcome</strong> (like conversion rates or coin flips), you might assume a <strong>Bernoulli</strong> or <strong>Binomial distribution</strong>. In this case, your model would include a <em>probability</em> parameter that must lie between 0 and 1.</p>
+</li>
+</ul>
+<p>Each of these cases leads to a likelihood; each likelihood comes with one or more <strong>parameters</strong></p>
+<h3 id="so-where-do-priors-come-in">So where do priors come in?</h3>
+<p>These parameters are the things you don&rsquo;t know yet. They are what you are trying to estimate using both your data <em>and</em> your prior beliefs (about the parameters).</p>
+<p>That&rsquo;s where <strong>priors</strong> come in. Let&rsquo;s look into how to choose them next.</p>
+<hr>
+<h2 id="choose-priors-for-your-parameters">Choose priors for your parameters</h2>
+<p>Once you&rsquo;ve picked a likelihood and figured out which parameters your model includes, it&rsquo;s time to ask:</p>
+<blockquote>
+<p><strong>What do I believe about these parameters before seeing the data?</strong></p></blockquote>
+<p>That belief (or uncertainty) is expressed through a <strong>prior distribution</strong>. In simple words, this is a distribution that you assign to each of the parameters that make up the likelihood, and which reflect what you know about them.</p>
+<p>In Bayesian statistics, we always start with a prior. This is not optional. It is part of what makes the approach powerful and honest: it forces you to say what you <em>do</em> or <em>do not</em> know before looking at the data.</p>
+<h3 id="what-should-guide-your-choice-of-prior">What should guide your choice of prior?</h3>
+<p>There are two key things to keep in mind:</p>
+<ol>
+<li><strong>What kind of parameter is it?</strong>
+This tells you what kind of values the prior is even <em>allowed</em> to take.</li>
+<li><strong>How much do you already know (or not know)?</strong>
+This helps you decide how <em>tight</em> or <em>vague</em> your prior should be. In other words, how much (un)certainty there is around your parameter.</li>
+</ol>
+<p>Let&rsquo;s break it down next.</p>
+<h4 id="first-respect-the-domain-of-the-parameter">First: Respect the domain of the parameter</h4>
+<ul>
+<li>If the parameter must be <strong>positive</strong> (like a rate or standard deviation), your prior should only take on positive values. Common choices include the <strong>Exponential</strong>, <strong>Gamma</strong>, or <strong>Half-Normal</strong> distributions.</li>
+<li>If the parameter is a <strong>probability</strong> (like the chance someone clicks a button on a website), the prior must live between 0 and 1. A <strong>Beta distribution</strong> is a natural choice here.</li>
+<li>If the parameter can be <strong>any real number</strong> (like a mean value), you can use a <strong>Normal distribution</strong> centered somewhere reasonable, with a standard deviation wide enough to reflect your uncertainty (i.e., what you know about that parameter).</li>
+</ul>
+<h4 id="second-ask-yourself-what-you-know">Second: Ask yourself what you know</h4>
+<p>Once you&rsquo;ve got the domain right, the next step is to think about <strong>how much prior knowledge you have</strong>.</p>
+<ul>
+<li>
+<p><strong>If you have strong prior knowledge</strong>, maybe from previous studies, engineering constraints, expert judgment, etc., then use an <em>informative prior</em>. For example, if you know that most defect rates are below 5%, you can use a Beta distribution that concentrates most of its mass below 0.05.</p>
+</li>
+<li>
+<p><strong>If you have <em>some</em> idea</strong>, but you&rsquo;re not very confident, use a <em>weakly informative prior</em>. These are broad, reasonable guesses that act as gentle regularizers. They help keep estimates from going completely off the rails in small-data situations, but still let the data speak.</p>
+</li>
+<li>
+<p><strong>If you know basically nothing</strong>, it&rsquo;s tempting to use a so-called <em>non-informative prior</em>. These include things like flat/uniform distributions, or more technical choices like <em>Jeffreys priors</em>. But be careful: these can sometimes behave badly, especially in small samples or complex models.</p>
+</li>
+</ul>
+<h5 id="priors-matter-more-when-you-have-less-data">Priors matter more when you have less data</h5>
+<p>When you have <strong>lots of data</strong>, the influence of the prior usually fades. In such cases, the likelihood dominates, and the posterior is driven by the data.</p>
+<p>But when data is <strong>scarce</strong>, your prior can have a big impact. That is not a flaw, that&rsquo;s the model honestly reflecting uncertainty.</p>
+<h5 id="how-do-you-check-if-your-priors-make-sense">How do you <em>check</em> if your priors make sense?</h5>
+<p>Even a reasonable-sounding prior can produce weird results when combined with your model.</p>
+<p>That&rsquo;s why the next step is so important: <strong>prior predictive checks</strong>. Let&rsquo;s have a look.</p>
+<hr>
+<h2 id="check-your-prior-prior-predictive-checks">Check your prior: prior predictive checks</h2>
+<p>You&rsquo;ve chosen your likelihood, and you&rsquo;ve assigned priors to your parameters. Cool! Solid start.</p>
+<p>But here&rsquo;s the next important question:</p>
+<blockquote>
+<p><strong>Do your priors make sense <em>in the context of your model</em>?</strong></p></blockquote>
+<p>Even if each prior seems reasonable on its own, their combination, i.e., once passed through your <em>model</em>, might produce predictions that are complete mumbo jumbo.</p>
+<p>This is where <strong>prior predictive checks</strong> come in.</p>
+<h3 id="what-is-a-prior-predictive-check">What is a prior predictive check?</h3>
+<p>A <strong>prior predictive check</strong> is when you generate fake data (yes, I know, don&rsquo;t take out the pitchfork!) <em>before</em> seeing the real data, using:</p>
+<ul>
+<li>Your <strong>model structure</strong> (i.e., your likelihood, a.k.a. your generative model&hellip; starts painting a picture?)</li>
+<li>and your <strong>priors</strong></li>
+</ul>
+<p>In other words, you&rsquo;re simulating data from your model <strong>as if</strong> the priors were true. This gives you a sense of what kinds of observations your model considers plausible, even before seeing any real data.</p>
+<blockquote>
+<p><strong>If your model is saying &ldquo;yeah, human heights of 10 meters sound plausible,&rdquo; that&rsquo;s a red flag.</strong></p></blockquote>
+<h3 id="why-is-this-helpful">Why is this helpful?</h3>
+<p>Because it lets you <strong>test your assumptions before committing to them.</strong></p>
+<ul>
+<li>Are your priors too wide, allowing impossible or absurd values?</li>
+<li>Are they too narrow, ruling out reasonable possibilities?</li>
+<li>Are they combining in weird ways through the model?</li>
+</ul>
+<p>A prior predictive check helps catch these issues early, before they distort your inferences.</p>
+<h3 id="a-step-by-step-prior-predictive-check">A step-by-step prior predictive check</h3>
+<h4 id="start-knowing-nothing-or-almost-nothing">Start knowing nothing, or almost nothing</h4>
+<p>We&rsquo;ll now wealk through a simple example using real height and weight data (the same data I used in this <a href="https://vflores-io.github.io/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/">blog post</a>).</p>
+<p>Our goal is to define a linear model and explore what happens when we use <strong>very vague</strong> priors, then refine them step by step.</p>
+<p>Let&rsquo;s begin by loading the data</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">os</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">arviz</span> <span class="k">as</span> <span class="nn">az</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">pymc</span> <span class="k">as</span> <span class="nn">pm</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># load the data and print the header</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">if</span> <span class="s1">&#39;google.colab&#39;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">get_ipython</span><span class="p">()):</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># running on Colab</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># your csv_path = here </span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># running locally</span>
+</span></span><span class="line"><span class="cl">    <span class="n">csv_path</span> <span class="o">=</span> <span class="s1">&#39;data/SOCR-HeightWeight.csv&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">csv_path</span><span class="p">)</span>
+</span></span></code></pre></div><p>We are using a dataset with two columns: heights (in inches) and weight (in pounds). We&rsquo;ll rename the columns, convert the values to metric as any person who does not want to lose their sanity would, and work with a subset to keep things fast for this example.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># rename the columns for clarity</span>
+</span></span><span class="line"><span class="cl"><span class="n">new_column_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="s1">&#39;height (cm)&#39;</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="s1">&#39;weight (kg)&#39;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span> <span class="o">=</span> <span class="n">new_column_names</span><span class="p">,</span> <span class="n">inplace</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># convert the values to metric</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">*</span> <span class="mf">2.54</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span> <span class="o">*</span> <span class="mf">0.454</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># use the first 1000 rows for the analysis</span>
+</span></span><span class="line"><span class="cl"><span class="n">height_obs</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;height (cm)&#39;</span><span class="p">][:</span><span class="mi">1000</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">weight_obs</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;weight (kg)&#39;</span><span class="p">][:</span><span class="mi">1000</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># standardize height: center it and scale it</span>
+</span></span><span class="line"><span class="cl"><span class="n">height_scaled</span> <span class="o">=</span> <span class="p">(</span><span class="n">height_obs</span> <span class="o">-</span> <span class="n">height_obs</span><span class="o">.</span><span class="n">mean</span><span class="p">())</span> <span class="o">/</span> <span class="n">height_obs</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+</span></span></code></pre></div><blockquote>
+<p>Standardizing height helps make the model more stable and the priors easier to interpret. Now the intercept corresponds to the average weight, and the slope tells us how weight changes per standard deviation of height.</p></blockquote>
+<p>Now, let&rsquo;s build a model using vague, almost uninformed priors, just to see what happens. This would be the equivalent of &ldquo;shot in the dark&rdquo; priors.</p>
+<p>Below we choose intentionally absurdly wide priors 🤡:</p>
+<ul>
+<li>The intercept could be anywhere from -300 to +300.</li>
+<li>The slope allows changes of ±100 kg per standard deviation in height (!).</li>
+<li>The noise (<code>sigma</code>) could make weight vary by hundreds of kg.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">with</span> <span class="n">pm</span><span class="o">.</span><span class="n">Model</span><span class="p">()</span> <span class="k">as</span> <span class="n">model</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">  <span class="c1"># very vague priors</span>
+</span></span><span class="line"><span class="cl">  <span class="n">intercept</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s2">&#34;intercept&#34;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="mf">100.0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">slope</span>     <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s2">&#34;slope&#34;</span>    <span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span>  <span class="mf">50.0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">sigma</span>     <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Exponential</span><span class="p">(</span><span class="s2">&#34;sigma&#34;</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="c1"># linear model</span>
+</span></span><span class="line"><span class="cl">  <span class="n">mu</span> <span class="o">=</span> <span class="n">intercept</span> <span class="o">+</span> <span class="p">(</span><span class="n">slope</span> <span class="o">*</span> <span class="n">height_scaled</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="c1"># likelihood (we&#39;re not fitting to real data yet, though!)</span>
+</span></span><span class="line"><span class="cl">  <span class="n">weight</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s2">&#34;weight&#34;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">weight_obs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">  <span class="c1"># sample from the prior predictive distribution</span>
+</span></span><span class="line"><span class="cl">  <span class="n">prior_pred</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">sample_prior_predictive</span><span class="p">(</span><span class="n">draws</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># plot prior predictive distribution</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_ppc</span><span class="p">(</span><span class="n">prior_pred</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="s2">&#34;prior&#34;</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&#34;kde&#34;</span><span class="p">,</span> <span class="n">data_pairs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;weight&#34;</span><span class="p">:</span> <span class="s2">&#34;weight&#34;</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&#34;prior predictive check — simulated weights&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&#34;weight (kg)&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></span></code></pre></div><p><img loading="lazy" src="/images/20250502_Bayesian_Priors/output_6_1.png" type="" alt="png"  /></p>
+<p>So the results of how those priors affect the data are shown. These results show a very chaotic spread, with negative values well within the realm of possibility, or values of +300 kg being quite plausible too.</p>
+<blockquote>
+<p><strong>This is the model saying &ldquo;sure, a person could weigh -50 kg or 700 kg, why not?</strong></p></blockquote>
+<p>Exactly the kind of situation where a <strong>prior predictive check</strong> will save you the embarrassment.</p>
+<h4 id="refining-our-priors-making-an-educated-guess">Refining our priors (making an educated guess)</h4>
+<p>Now that we&rsquo;ve seen how wild the prior predictive distribution can get with vague priors, let&rsquo;s try something better.</p>
+<p>We&rsquo;ll use some simple, real-world intuition:</p>
+<ul>
+<li>Most adult humans weigh somewhere around 60-90 kg (subject to debate, but this is the <strong>assumption we make</strong>), so let&rsquo;s center our <strong>intercept</strong> around 70-75 kg.</li>
+<li>We expect taller people to weight more. A one standard deviation increase in height might correspond to a 5-10 kg increase in weight (again, we make this assumption or educated guess based on our gut, still valid), so we&rsquo;ll center the <strong>slope</strong> around 6.</li>
+<li>We&rsquo;ll also pick a more reasonable prior for the standard deviation <code>sigma</code>, reflecting typical variability in weight, not hundreds of kg.</li>
+</ul>
+<p>Those priors are still flexible. We&rsquo;re not being overly confident here, but we are still respecting real-world ranges.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">with</span> <span class="n">pm</span><span class="o">.</span><span class="n">Model</span><span class="p">()</span> <span class="k">as</span> <span class="n">better_model</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">intercept</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s2">&#34;intercept&#34;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="mi">72</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">slope</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s2">&#34;slope&#34;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sigma</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Exponential</span><span class="p">(</span><span class="s2">&#34;sigma&#34;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">mu</span> <span class="o">=</span> <span class="n">intercept</span> <span class="o">+</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">height_scaled</span>
+</span></span><span class="line"><span class="cl">    <span class="n">weight</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s2">&#34;weight&#34;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">weight_obs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">better_prior_pred</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">sample_prior_predictive</span><span class="p">(</span><span class="n">draws</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># visualize the results</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">style</span><span class="o">.</span><span class="n">use</span><span class="p">(</span><span class="s2">&#34;default&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_ppc</span><span class="p">(</span><span class="n">better_prior_pred</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="s2">&#34;prior&#34;</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&#34;kde&#34;</span><span class="p">,</span> <span class="n">data_pairs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;weight&#34;</span><span class="p">:</span> <span class="s2">&#34;weight&#34;</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&#34;prior predictive check — refined priors&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&#34;weight (kg)&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></span></code></pre></div><pre><code>Sampling: [intercept, sigma, slope, weight]
+</code></pre>
+<p><img loading="lazy" src="/images/20250502_Bayesian_Priors/output_9_1.png" type="" alt="png"  /></p>
+<p>Now you should see a clean distribution of predicted weights, mostly falling between 40 and 110 for the most part (I&rsquo;m just eyeballing here). This is far more reasonable and aligns with what we expect for adult weight.</p>
+<h4 id="final-refinement-tighten-the-priors">Final refinement: tighten the priors</h4>
+<p>The last prior predictive check looked pretty good. Our model was generating realistic weights. But we can take it one step further.</p>
+<p>Now that we&rsquo;ve seren the prior predictive in action, let&rsquo;s <strong>tighten our priors</strong> slightly. This isn&rsquo;t about being overly confident, it&rsquo;s about acknowledging that we have a pretty good sense of the range we&rsquo;re expecting.</p>
+<p>Our intuition:</p>
+<ul>
+<li>Average adult weight is still around 72 kg, but we&rsquo;re more confident now, so we&rsquo;ll reduce the standard deviation to 5</li>
+<li>A one standard deviation increase in height likely increases weight by about 6 kg, but again, we&rsquo;ll narrow the standard deviation slightly, maybe to 1.</li>
+<li>We&rsquo;ll keep <code>sigma</code> as-is since our previous setting was reasonable.</li>
+</ul>
+<p>These are still <strong>not hard constraints</strong>, they just express <strong>stronger beliefs</strong> based on what we&rsquo;ve already seen and know about the domain.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">with</span> <span class="n">pm</span><span class="o">.</span><span class="n">Model</span><span class="p">()</span> <span class="k">as</span> <span class="n">tight_model</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># more confident (but still flexible) priors</span>
+</span></span><span class="line"><span class="cl">    <span class="n">intercept</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s2">&#34;intercept&#34;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="mi">72</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">slope</span>     <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s2">&#34;slope&#34;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sigma</span>     <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Exponential</span><span class="p">(</span><span class="s2">&#34;sigma&#34;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># linear model</span>
+</span></span><span class="line"><span class="cl">    <span class="n">mu</span> <span class="o">=</span> <span class="n">intercept</span> <span class="o">+</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">height_scaled</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># likelihood (we&#39;re still not fitting to real data yet!)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">weight</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s2">&#34;weight&#34;</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">observed</span><span class="o">=</span><span class="n">weight_obs</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># sample from the prior predictive distribution</span>
+</span></span><span class="line"><span class="cl">    <span class="n">tight_prior_pred</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">sample_prior_predictive</span><span class="p">(</span><span class="n">draws</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_ppc</span><span class="p">(</span><span class="n">tight_prior_pred</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="s2">&#34;prior&#34;</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&#34;kde&#34;</span><span class="p">,</span> <span class="n">data_pairs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;weight&#34;</span><span class="p">:</span> <span class="s2">&#34;weight&#34;</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&#34;prior predictive check — tight priors&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&#34;weight (kg)&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></span></code></pre></div><pre><code>Sampling: [intercept, sigma, slope, weight]
+</code></pre>
+<p><img loading="lazy" src="/images/20250502_Bayesian_Priors/output_12_1.png" type="" alt="png"  /></p>
+<p>So now we see a cleaner, tighter distribution of plausible weight values, tightly centered around realistic values, with some variability.</p>
+<blockquote>
+<p><strong>This is the kind of prior predictive you want: it reflects your understanding of the world, respects the data scale, and still leaves room for learning from the actual observations</strong></p></blockquote>
+<hr>
+<h2 id="running-inference-let-the-model-see-the-data">Running inference: let the model see the data</h2>
+<p>At this point, we&rsquo;ve checked our priors, refined them, and made sure they produce reasonable simulated data. Now&rsquo;s it&rsquo;s time to move from <strong>prior</strong> to <strong>posterior</strong>. In other words, to let the model learn from the actual data you have.</p>
+<p>We&rsquo;ll keep the same model structure and priors as in the previous step (the tightened version). We can easily do so by extending the posterior data from inference, into the same data container.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">with</span> <span class="n">tight_model</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># sample from the posterior</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trace</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">2000</span><span class="p">,</span> <span class="n">tune</span><span class="o">=</span><span class="mi">1000</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># plot the posterior</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_posterior</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">var_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&#34;intercept&#34;</span><span class="p">,</span> <span class="s2">&#34;slope&#34;</span><span class="p">,</span> <span class="s2">&#34;sigma&#34;</span><span class="p">],</span> <span class="n">hdi_prob</span><span class="o">=</span><span class="mf">0.95</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>Initializing NUTS using jitter+adapt_diag...
+Multiprocess sampling (4 chains in 4 jobs)
+NUTS: [intercept, slope, sigma]
+
+
+
+Output()
+</code></pre>
+<pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace"></pre>
+<pre><code>Sampling 4 chains for 1_000 tune and 2_000 draw iterations (4_000 + 8_000 draws total) took 1 seconds.
+</code></pre>
+<p><img loading="lazy" src="/images/20250502_Bayesian_Priors/output_16_5.png" type="" alt="png"  /></p>
+<h4 id="sanity-check-posterior-predictive-check">Sanity check: posterior predictive check</h4>
+<p>finally, we can check how well our model does <strong>after seeing the data</strong> by sampling from the <strong>posterior predictive distribution</strong>.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">with</span> <span class="n">tight_model</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># sample from the posterior predictive distribution</span>
+</span></span><span class="line"><span class="cl">    <span class="n">post_pred</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">sample_posterior_predictive</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">var_names</span><span class="o">=</span><span class="p">[</span><span class="s2">&#34;weight&#34;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># plot the posterior predictive distribution</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_ppc</span><span class="p">(</span><span class="n">post_pred</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="s2">&#34;posterior&#34;</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&#34;kde&#34;</span><span class="p">,</span> <span class="n">data_pairs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;weight&#34;</span><span class="p">:</span> <span class="s2">&#34;weight&#34;</span><span class="p">})</span>
+</span></span></code></pre></div><pre><code>Sampling: [weight]
+
+
+
+Output()
+</code></pre>
+<p><img loading="lazy" src="/images/20250502_Bayesian_Priors/output_18_5.png" type="" alt="png"  /></p>
+<p>The resulting plot shows how well the model predicts the observed weights. The black line shows the real data, while the blue curves show what our model now thinks is likely.</p>
+<blockquote>
+<p><strong>You&rsquo;ll notice it&rsquo;s more concentrated than the prior predictive. That&rsquo;s the model learning. After seeing the data, our uncertainty about weight has narrowed sifnificantly</strong></p></blockquote>
+<p>This is a nice sanity check that confirms our model is reasonable and captures the data-generating process well.</p>
+<h3 id="what-did-the-model-learn">What did the model learn?</h3>
+<p>Here is what the posterior tells us:</p>
+<ul>
+<li>The intercept (average weight at mean height) is around 58 kg.</li>
+<li>The slope is about 2.7 kg per SD of height: so taller people do weight more, but the effect isn&rsquo;t huge.</li>
+<li>The sigma (unexplained variation in weight) is around 4.6 kg, showing there&rsquo;s still some natural variabilty not captured by height alone.</li>
+</ul>
+<p>These estiamtes make sense, and most importantly, they came from priors we were happy with, so we can trust the posterior.</p>
+<hr>
+<h2 id="wrap-up-what-we-learned-about-priors">Wrap-up: what we learned about priors</h2>
+<p>Let&rsquo;s recap what we did:</p>
+<ul>
+<li>We started with vague priors, saw that they produced absurd predictions, and realized that was a problem.</li>
+<li>We refined those priors using basic knowledge, and verified our assumptions using prior predictive checks.</li>
+<li>Once we were happy, we ran inference, and saw how the model combined our beliefs and data to update our understanding.</li>
+</ul>
+<blockquote>
+<p><strong>Bayesian modeling is not just about plug n&rsquo; chug the data. It is about thinking carefully and honestly about what you believe and letting the data update that belief.</strong></p></blockquote>
+<p>The key takeaway: <strong>keep in mind where to begin when choosing priors, check them, and don&rsquo;t be afraid to tweak them. Your model will thank you</strong>.</p>
+]]></content:encoded>
+    </item>
+    
+    <item>
+      <title>Bayesian Linear Regression with PyMC</title>
+      <link>http://localhost:1313/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</link>
+      <pubDate>Mon, 27 May 2024 16:57:31 +0800</pubDate>
+      
+      <guid>http://localhost:1313/posts/20240527_baylinreg_pymc/e01_baylinreg_pymc/</guid>
+      <description>Learn the basics of Bayesian linear regression using the excellent PyMC Probabilistic Programming package. This focuses on model formulation in PyMC, interpretation, and how to make predictions on out-of-sample data.</description>
+      <content:encoded><![CDATA[<p><a href="https://colab.research.google.com/github/vflores-io/Portfolio/blob/main/Bayesian%20Methods%20Tutorials/Python/PyMC/E01_BayLinReg/E01_BayLinReg_PyMC.ipynb" target="_parent"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/></a></p>
+<hr>
+<h3 id="problem-statement">Problem Statement</h3>
+<p>In this notebook, we will explore the relationship between height and weight using Bayesian linear regression. Our goal is to fit a linear model of the form:</p>
+<p>$$ y = \alpha + \beta x + \varepsilon $$</p>
+<p>where:</p>
+<ul>
+<li>$y$ represents the weight,</li>
+<li>$x$ represents the height,</li>
+<li>$\alpha$ is the intercept,</li>
+<li>$\beta$ is the slope,</li>
+<li>$\varepsilon$ is the error term, modeled as Gaussian white noise, i.e., $\varepsilon \sim \mathcal{N}(0, \sigma)$, where $\sigma$ is the standard deviation of the noise.</li>
+</ul>
+<p>We will use Bayesian inference to estimate the posterior distributions of $\alpha$ and $\beta$ given our data and prior assumptions. Bayesian methods provide a natural way to quantify uncertainty in our parameter estimates and predictions.</p>
+<h3 id="approach">Approach</h3>
+<p>To achieve our goal, we will:</p>
+<ol>
+<li><strong>Load Real Data:</strong> We will use an actual dataset representing the heights and weights of individuals, sourced from <a href="https://www.kaggle.com/datasets/burnoutminer/heights-and-weights-dataset">Kaggle</a>.</li>
+<li><strong>Define the Bayesian Model:</strong> Using the probabilistic programming package <code>PyMC</code>, we will define our Bayesian linear regression model, specifying our priors for $\alpha$, $\beta$, and $\sigma$.</li>
+<li><strong>Perform Inference:</strong> We will use Markov Chain Monte Carlo (MCMC) algorithms, such as the No-U-Turn Sampler (NUTS), to sample from the posterior distributions of our model parameters.</li>
+<li><strong>Visualization and Prediction:</strong> We will visualize the results, including the regression lines sampled from the posterior, the uncertainty intervals, and make predictions on new, unobserved data points.</li>
+</ol>
+<h3 id="reference">Reference</h3>
+<p>This notebook is inspired by examples from the <code>PyMC</code> documentation, specifically the <a href="https://www.pymc.io/projects/docs/en/stable/learn/core_notebooks/GLM_linear.html">Generalized Linear Regression tutorial</a>. It also builds upon a <a href="https://vflores-io.github.io/posts/20231110_bayesian_linear_regression_julia/20231110_bayesian_linear_regression_julia/">similar implementation in Julia using <code>Turing.jl</code></a>. This <code>PyMC</code> recreation aims at providing a more complete illustration of the use of probabilistic programming languages.</p>
+<h3 id="initial-setup">Initial setup</h3>
+<p>Import the necessary packages.</p>
+<p>Additionally, this notebook is supposed to be used in Google Colab. The data set (CSV) file is hosted in a private github repo. Therefore, include the github cloning to the temporary session so that the data can be accessed and used in the Colab session.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">os</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">arviz</span> <span class="k">as</span> <span class="nn">az</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">pymc</span> <span class="k">as</span> <span class="nn">pm</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+</span></span><span class="line"><span class="cl"><span class="o">%</span><span class="n">matplotlib</span> <span class="n">inline</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;text.usetex&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">rcParams</span><span class="p">[</span><span class="s1">&#39;font.family&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;STIXGeneral&#39;</span>
+</span></span></code></pre></div><h2 id="bayesian-workflow">Bayesian Workflow</h2>
+<p>For this exercise, I will implement the following workflow:</p>
+<ul>
+<li>Collect data: this will be implemented by downloading the relevant data set</li>
+<li>Build a Bayesian model: this will be built using <code>PyMC</code></li>
+<li>Infer the posterior distributions of the parameters $\alpha$ and $\beta$, as well as the model noise</li>
+<li>Evaluate the fit of the model</li>
+</ul>
+<h3 id="collecting-the-data">Collecting the data</h3>
+<p>The data to be analyzed will be the height vs. weight data from <a href="https://www.kaggle.com/datasets/burnoutminer/heights-and-weights-dataset">https://www.kaggle.com/datasets/burnoutminer/heights-and-weights-dataset</a></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># load the data and print the header</span>
+</span></span><span class="line"><span class="cl"><span class="n">csv_path</span> <span class="o">=</span> <span class="s1">&#39;data/SOCR-HeightWeight.csv&#39;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">csv_path</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</span></span></code></pre></div><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+<pre><code>.dataframe tbody tr th {
+    vertical-align: top;
+}
+
+.dataframe thead th {
+    text-align: right;
+}
+</code></pre>
+<p></style></p>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Index</th>
+      <th>Height(Inches)</th>
+      <th>Weight(Pounds)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>65.78331</td>
+      <td>112.9925</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>71.51521</td>
+      <td>136.4873</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>69.39874</td>
+      <td>153.0269</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>68.21660</td>
+      <td>142.3354</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>67.78781</td>
+      <td>144.2971</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<p>Let&rsquo;s instead work with the International System.</p>
+<p>Convert the values to centimeters and kilograms.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># Renaming columns 2 and 3</span>
+</span></span><span class="line"><span class="cl"><span class="n">new_column_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="s1">&#39;Height (cm)&#39;</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span> <span class="s1">&#39;Weight (kg)&#39;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span> <span class="o">=</span> <span class="n">new_column_names</span><span class="p">,</span> <span class="n">inplace</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># convert the values to SI units</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span><span class="o">*</span><span class="mf">2.54</span>
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="mi">2</span><span class="p">]]</span><span class="o">*</span><span class="mf">0.454</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># assign the relevant data to variables for easier manipulation</span>
+</span></span><span class="line"><span class="cl"><span class="n">height</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;Height (cm)&#39;</span><span class="p">][:</span><span class="mi">1000</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl"><span class="n">weight</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;Weight (kg)&#39;</span><span class="p">][:</span><span class="mi">1000</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">data</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</span></span></code></pre></div><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+<pre><code>.dataframe tbody tr th {
+    vertical-align: top;
+}
+
+.dataframe thead th {
+    text-align: right;
+}
+</code></pre>
+<p></style></p>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Index</th>
+      <th>Height (cm)</th>
+      <th>Weight (kg)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>1</td>
+      <td>167.089607</td>
+      <td>51.298595</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>2</td>
+      <td>181.648633</td>
+      <td>61.965234</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>3</td>
+      <td>176.272800</td>
+      <td>69.474213</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>4</td>
+      <td>173.270164</td>
+      <td>64.620272</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>5</td>
+      <td>172.181037</td>
+      <td>65.510883</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<h3 id="visualize-the-data">Visualize the data</h3>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># scatter plot of the data</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">height</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="mi">20</span><span class="p">,</span> <span class="n">edgecolor</span> <span class="o">=</span> <span class="s1">&#39;black&#39;</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Height vs. Weight&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Height (cm)&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Weight (kg)&#39;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">grid</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;gray&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># plt.show()</span>
+</span></span></code></pre></div><p><img loading="lazy" src="/images/20240527_BayLinReg_PyMC/output_11_0.png" type="" alt="png"  /></p>
+<h2 id="building-a-bayesian-model-with-pymc">Building a Bayesian model with <code>PyMC</code></h2>
+<p>First, we assume that the weight is a variable dependent on the height. Thus, we can express the Bayesian model as:</p>
+<p>$$y \sim \mathcal{N}(\alpha + \beta \mathbf{X}, \sigma^2)$$</p>
+<p>Since we want to <em>infer</em> the posterior distribution of the parameters $\theta = {\alpha, \beta, \sigma }$, we need to assign priors to those variables. Remember that $\sigma$ is a measure of the uncertainty in <em>the model</em>.</p>
+<p>$$
+\begin{align*}
+\alpha &amp;\sim \mathcal{N}(0,10) \\
+\beta &amp;\sim \mathcal{N}(0,1) \\
+\sigma &amp;\sim \mathcal{TN}(0,100; 0, \infty)
+\end{align*}
+$$
+The last distribution is a <em>truncated normal distribution</em> bounded from 0 to $\infty$.</p>
+<p><strong>Note</strong>: Here, we define the input data <code>height</code> as a <code>MutableData</code> container. The reason for this is because, later, we will want to change this input data, to make predictions. This will become clear a bit later.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">with</span> <span class="n">pm</span><span class="o">.</span><span class="n">Model</span><span class="p">()</span> <span class="k">as</span> <span class="n">blr_model</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">x</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">MutableData</span><span class="p">(</span><span class="s1">&#39;height&#39;</span><span class="p">,</span> <span class="n">height</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># define the priors</span>
+</span></span><span class="line"><span class="cl">    <span class="n">alpha</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">beta</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">sigma</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">TruncatedNormal</span><span class="p">(</span><span class="s1">&#39;sigma&#39;</span><span class="p">,</span> <span class="n">mu</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> <span class="n">lower</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># define the likelihood - assign the variable name &#34;y&#34; to the observations</span>
+</span></span><span class="line"><span class="cl">    <span class="n">y</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">Normal</span><span class="p">(</span><span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="n">mu</span> <span class="o">=</span> <span class="n">alpha</span> <span class="o">+</span> <span class="p">(</span><span class="n">beta</span> <span class="o">*</span> <span class="n">x</span><span class="p">),</span> <span class="n">sigma</span> <span class="o">=</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">observed</span> <span class="o">=</span> <span class="n">weight</span><span class="p">,</span> <span class="n">shape</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="c1"># inference - crank up the bayes!</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trace</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="n">chains</span> <span class="o">=</span> <span class="mi">4</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>Auto-assigning NUTS sampler...
+Initializing NUTS using jitter+adapt_diag...
+Multiprocess sampling (4 chains in 4 jobs)
+NUTS: [alpha, beta, sigma]
+</code></pre>
+<style>
+    /* Turns off some styling */
+    progress {
+        /* gets rid of default border in Firefox and Opera. */
+        border: none;
+        /* Needs to be in here for Safari polyfill so background images work as expected. */
+        background-size: auto;
+    }
+    progress:not([value]), progress:not([value])::-webkit-progress-bar {
+        background: repeating-linear-gradient(45deg, #7e7e7e, #7e7e7e 10px, #5c5c5c 10px, #5c5c5c 20px);
+    }
+    .progress-bar-interrupted, .progress-bar-interrupted::-webkit-progress-bar {
+        background: #F44336;
+    }
+</style>
+<div>
+  <progress value='8000' class='' max='8000' style='width:300px; height:20px; vertical-align: middle;'></progress>
+  100.00% [8000/8000 00:37&lt;00:00 Sampling 4 chains, 0 divergences]
+</div>
+<pre><code>Sampling 4 chains for 1_000 tune and 1_000 draw iterations (4_000 + 4_000 draws total) took 53 seconds.
+</code></pre>
+<p>We can explore the trace object.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">trace</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span><span class="o">.</span><span class="n">columns</span>
+</span></span></code></pre></div><pre><code>Index([                                  'chain',
+                                          'draw',
+                          ('posterior', 'alpha'),
+                           ('posterior', 'beta'),
+                          ('posterior', 'sigma'),
+           ('sample_stats', 'perf_counter_diff'),
+          ('sample_stats', 'perf_counter_start'),
+             ('sample_stats', 'smallest_eigval'),
+               ('sample_stats', 'step_size_bar'),
+         ('sample_stats', 'index_in_trajectory'),
+                      ('sample_stats', 'energy'),
+            ('sample_stats', 'max_energy_error'),
+                ('sample_stats', 'energy_error'),
+             ('sample_stats', 'acceptance_rate'),
+                  ('sample_stats', 'tree_depth'),
+           ('sample_stats', 'process_time_diff'),
+                   ('sample_stats', 'step_size'),
+                     ('sample_stats', 'n_steps'),
+              ('sample_stats', 'largest_eigval'),
+                   ('sample_stats', 'diverging'),
+                          ('sample_stats', 'lp'),
+       ('sample_stats', 'reached_max_treedepth')],
+      dtype='object')
+</code></pre>
+<h4 id="visualize-the-inference-diagnostics">Visualize the inference diagnostics</h4>
+<p>Now that we have performed Bayesian inference using the <code>NUTS()</code> algorithm, we can visualize the results. Additionally, call for a summary of the statistics of the inferred posterior distributions of $\theta$.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># visualize the results</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># az.style.use(&#39;arviz-darkgrid&#39;)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">labeller</span> <span class="o">=</span> <span class="n">az</span><span class="o">.</span><span class="n">labels</span><span class="o">.</span><span class="n">MapLabeller</span><span class="p">(</span><span class="n">var_name_map</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;alpha&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;$\alpha$&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                                <span class="s1">&#39;beta&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;$\beta$&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">                                                <span class="s1">&#39;sigma&#39;</span><span class="p">:</span> <span class="sa">r</span><span class="s1">&#39;$\sigma$&#39;</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_trace</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">var_names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;sigma&#39;</span><span class="p">],</span> <span class="n">labeller</span> <span class="o">=</span> <span class="n">labeller</span><span class="p">,</span> <span class="n">compact</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># plt.show()</span>
+</span></span></code></pre></div><p><img loading="lazy" src="/images/20240527_BayLinReg_PyMC/output_17_0.png" type="" alt="png"  /></p>
+<h4 id="interpreting-the-mcmc-diagnostics-plots">Interpreting the MCMC Diagnostics Plots</h4>
+<p>Trace plots are crucial for diagnosing the performance of Markov Chain Monte Carlo (MCMC) algorithms. These plots typically consist of two parts for each parameter: the trace plot and the posterior density plot.</p>
+<p>The trace plot shows the sampled values of a parameter across iterations. A well-behaved trace plot should look like a &ldquo;hairy caterpillar,&rdquo; indicating good mixing. This means the trace should move around the parameter space without getting stuck and should not display any apparent patterns or trends. If the trace shows a clear trend or drift, it suggests that the chain has not yet converged. For the parameters $\alpha$ (intercept), $\beta$ (slope), and $\sigma$ (standard deviation of noise), we want to see the traces for different chains mixing well and stabilizing around a constant mean.</p>
+<p>The posterior density plot shows the distribution of the sampled values of a parameter. This plot helps visualize the posterior distribution of the parameter. A good density plot should be smooth and unimodal, indicating that the parameter has a well-defined posterior distribution. If multiple chains are used, their density plots should overlap significantly, suggesting that all chains are sampling from the same distribution. For $\alpha$, $\beta$, and $\sigma$, overlapping density plots indicate that the chains have converged to the same posterior distribution.</p>
+<p>Next, we can visualize the posterior distributions of the inferred parameters.eters.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># visualize the posterior distributions</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_posterior</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">var_names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;alpha&#39;</span><span class="p">,</span> <span class="s1">&#39;beta&#39;</span><span class="p">,</span> <span class="s1">&#39;sigma&#39;</span><span class="p">],</span> <span class="n">labeller</span> <span class="o">=</span> <span class="n">labeller</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></span></code></pre></div><p><img loading="lazy" src="/images/20240527_BayLinReg_PyMC/output_19_0.png" type="" alt="png"  /></p>
+<p>After visualizing the inference diagnostics and the posterior distributions of the paramters, we can also obtain the summary statistics.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># get the summary statistics of the posterior distributions</span>
+</span></span><span class="line"><span class="cl"><span class="n">pm</span><span class="o">.</span><span class="n">summary</span><span class="p">(</span><span class="n">trace</span><span class="p">,</span> <span class="n">kind</span> <span class="o">=</span> <span class="s2">&#34;stats&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+<pre><code>.dataframe tbody tr th {
+    vertical-align: top;
+}
+
+.dataframe thead th {
+    text-align: right;
+}
+</code></pre>
+<p></style></p>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>mean</th>
+      <th>sd</th>
+      <th>hdi_3%</th>
+      <th>hdi_97%</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>alpha</th>
+      <td>-28.557</td>
+      <td>4.558</td>
+      <td>-36.650</td>
+      <td>-19.619</td>
+    </tr>
+    <tr>
+      <th>beta</th>
+      <td>0.500</td>
+      <td>0.026</td>
+      <td>0.449</td>
+      <td>0.548</td>
+    </tr>
+    <tr>
+      <th>sigma</th>
+      <td>4.657</td>
+      <td>0.100</td>
+      <td>4.474</td>
+      <td>4.850</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+<h3 id="visualize-the-results">Visualize the results</h3>
+<p>Now that we have posterior distributions for the parameters $\theta$, we can plot the the resulting linear regression functions. The following is an excerpt from PyMC&rsquo;s <a href="https://www.pymc.io/projects/docs/en/stable/learn/core_notebooks/GLM_linear.html">Generalized Linear Regression tutorial</a>:</p>
+<blockquote>
+<p>In GLMs, we do not only have one best fitting regression line, but many. A posterior predictive plot takes multiple samples from the posterior (intercepts and slopes) and plots a regression line for each of them. We can manually generate these regression lines using the posterior samples directly.</p></blockquote>
+<p>Below, what we will effectively be doing is:</p>
+<p>$$ y_i = \alpha_i + \beta_i \mathbf{X} \ \ \ , \ \ \ {i = 1, \ldots , N_{samples}}$$</p>
+<p>where $N_{samples}$ are the number of samples from the posterior. This number comes from the inference procedure, and in practical terms is the umber of samples we asked <code>PyMC</code> to produce.</p>
+<p>In other words, plotting the samples from the posterior distribution involves plotting the regression lines sampled from the posterior. Each sample represents a possible realization of the regression line based on the sampled values of the parameters $\alpha$ (intercept) and $\beta$ (slope).</p>
+<p>These sample regression lines ullustrate the uncertainty in the regression model&rsquo;s parameters and how this uncertainty propagates into the predictions (of the regression line).</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># use the posterior to create regression line samples</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># equivalent to: y[i]  = alpha[i] + beta[i]*X</span>
+</span></span><span class="line"><span class="cl"><span class="n">trace</span><span class="o">.</span><span class="n">posterior</span><span class="p">[</span><span class="s2">&#34;y_posterior&#34;</span><span class="p">]</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">posterior</span><span class="p">[</span><span class="s2">&#34;alpha&#34;</span><span class="p">]</span> <span class="o">+</span> <span class="n">trace</span><span class="o">.</span><span class="n">posterior</span><span class="p">[</span><span class="s2">&#34;beta&#34;</span><span class="p">]</span><span class="o">*</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">height</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># plot the regression lines</span>
+</span></span><span class="line"><span class="cl"><span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="mi">7</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_lm</span><span class="p">(</span><span class="n">idata</span> <span class="o">=</span> <span class="n">trace</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">weight</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">height</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">y_model</span><span class="o">=</span><span class="s2">&#34;y_posterior&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">           <span class="n">y_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;color&#34;</span><span class="p">:</span><span class="s2">&#34;b&#34;</span><span class="p">,</span> <span class="s2">&#34;alpha&#34;</span><span class="p">:</span><span class="mf">0.2</span><span class="p">,</span> <span class="s2">&#34;markeredgecolor&#34;</span><span class="p">:</span><span class="s2">&#34;k&#34;</span><span class="p">,</span> <span class="s2">&#34;label&#34;</span><span class="p">:</span><span class="s2">&#34;Observed Data&#34;</span><span class="p">,</span> <span class="s2">&#34;markersize&#34;</span><span class="p">:</span><span class="mi">10</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">           <span class="n">y_model_plot_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;alpha&#34;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span> <span class="s2">&#34;zorder&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&#34;color&#34;</span><span class="p">:</span><span class="s2">&#34;#00cc99&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">           <span class="n">y_model_mean_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;color&#34;</span><span class="p">:</span><span class="s2">&#34;red&#34;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">          <span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></span></code></pre></div><p><img loading="lazy" src="/images/20240527_BayLinReg_PyMC/output_23_0.png" type="" alt="png"  /></p>
+<h2 id="using-the-linear-regression-model-to-make-predictions">Using the Linear Regression Model to Make Predictions</h2>
+<p>Now that we have a fitted Bayesian linear regression model, we can use it to make predictions. This involves sampling from the posterior predictive distribution, which allows us to generate predictions for new data points while incorporating the uncertainty from the posterior distribution <em>of the parameters</em>.</p>
+<h4 id="sample-from-the-posterior-predictive-distribution">Sample from the Posterior Predictive Distribution:</h4>
+<ul>
+<li>This step involves using the inferred <code>trace</code> from our Bayesian linear regression model <code>blr_model</code> to generate predictions. The <code>pm.sample_posterior_predictive</code> function in PyMC allows us to do this. It uses the posterior samples of the parameters to compute the predicted values of the outcome variable.</li>
+</ul>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># now predict the outcomes using the inferred trace</span>
+</span></span><span class="line"><span class="cl"><span class="k">with</span> <span class="n">blr_model</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># use the updated values and predict outcomes and probabilities:</span>
+</span></span><span class="line"><span class="cl">    <span class="n">pm</span><span class="o">.</span><span class="n">sample_posterior_predictive</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">trace</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">var_names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">        <span class="n">return_inferencedata</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">extend_inferencedata</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span></code></pre></div><pre><code>Sampling: [y]
+</code></pre>
+<style>
+    /* Turns off some styling */
+    progress {
+        /* gets rid of default border in Firefox and Opera. */
+        border: none;
+        /* Needs to be in here for Safari polyfill so background images work as expected. */
+        background-size: auto;
+    }
+    progress:not([value]), progress:not([value])::-webkit-progress-bar {
+        background: repeating-linear-gradient(45deg, #7e7e7e, #7e7e7e 10px, #5c5c5c 10px, #5c5c5c 20px);
+    }
+    .progress-bar-interrupted, .progress-bar-interrupted::-webkit-progress-bar {
+        background: #F44336;
+    }
+</style>
+<div>
+  <progress value='4000' class='' max='4000' style='width:300px; height:20px; vertical-align: middle;'></progress>
+  100.00% [4000/4000 00:00&lt;00:00]
+</div>
+<h4 id="exploring-the-trace-object">Exploring the Trace Object</h4>
+<p>The trace object stores the results of our inference. Initially, it contained the posterior samples of the model parameters (e.g., intercept and slope).</p>
+<p>After running <code>pm.sample_posterior_predictive</code>, the trace object is extended to include the posterior predictive samples. These are the predicted values for the outcome variable, given the posterior distribution of the model parameters.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># explore the trace object again</span>
+</span></span><span class="line"><span class="cl"><span class="n">trace</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span><span class="o">.</span><span class="n">columns</span>
+</span></span></code></pre></div><pre><code>Index([                                  'chain',
+                                          'draw',
+                          ('posterior', 'alpha'),
+                           ('posterior', 'beta'),
+                          ('posterior', 'sigma'),
+              ('posterior', 'y_posterior[0]', 0),
+          ('posterior', 'y_posterior[100]', 100),
+          ('posterior', 'y_posterior[101]', 101),
+          ('posterior', 'y_posterior[102]', 102),
+          ('posterior', 'y_posterior[103]', 103),
+       ...
+                ('sample_stats', 'energy_error'),
+             ('sample_stats', 'acceptance_rate'),
+                  ('sample_stats', 'tree_depth'),
+           ('sample_stats', 'process_time_diff'),
+                   ('sample_stats', 'step_size'),
+                     ('sample_stats', 'n_steps'),
+              ('sample_stats', 'largest_eigval'),
+                   ('sample_stats', 'diverging'),
+                          ('sample_stats', 'lp'),
+       ('sample_stats', 'reached_max_treedepth')],
+      dtype='object', length=2022)
+</code></pre>
+<p>We can observe how now we have another inference data container: <code>posterior_predictive</code>. This was generated by passing the <code>extend_inferencedata</code> argument to the <code>pm.sample_posterior_predictive</code> function above.</p>
+<p>This data contains predictions by passing the observed heights through our linear model and making predictions. Note that these &ldquo;predictions&rdquo; are made on <strong>observed data</strong>. This is similar to using validating the predictions on training data in machine learning, i.e. comparing the model predictions to the actual data on an observed input.</p>
+<p>We can use the linear regression model to make predictions. It should be noted that, again, the linear regression model is not a single regression line, but rather a set of regression lines generated from the posterior probability of $\theta$.</p>
+<h4 id="visualize-the-prediction-confidence-interval">Visualize the Prediction Confidence Interval</h4>
+<p>After we sampled from the posterior, we might want to visualize this to understand the posterior predictive distribution.</p>
+<p>In the code below, there are two things going on, let&rsquo;s go through them.</p>
+<ol>
+<li>Plotting the samples from the posterior distribution</li>
+</ol>
+<p>This part is exactly what we did before, which is plotting the sample posteriors of the <strong>regression line</strong>. These sample regression lines are a natural product of propagating the uncertainty from the parameters unto the prediction line.</p>
+<ol start="2">
+<li>Plotting the uncertainty in the mean and the observations</li>
+</ol>
+<p>Now we can add a ribbon to show the uncertainty not only in the regression line, but in the prediction points themselves. That is, that ribbon will tell us where we might expect a prediction point $i+1$, i.e.</p>
+<p>$$ y_{i+1} = \alpha_{i+1} + \beta_{i+1} x^* $$</p>
+<p>where $x^*$ is a test input point. In other words, and more specific to this demonstration:</p>
+<blockquote>
+<p>what is the <em>interval</em> where we would expect a predicted weight $y_{i+1}$ of an individual with a height $x*$.</p></blockquote>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># use the posterior to create regression line samples</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># trace.posterior[&#34;y_posterior&#34;] = trace.posterior[&#34;alpha&#34;] + trace.posterior[&#34;beta&#34;]*xr.DataArray(height)  # y_posterior = alpha + beta*x</span>
+</span></span><span class="line"><span class="cl"><span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="mi">7</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_lm</span><span class="p">(</span><span class="n">idata</span> <span class="o">=</span> <span class="n">trace</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">weight</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">height</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">y_model</span><span class="o">=</span><span class="s2">&#34;y_posterior&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">           <span class="n">y_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;color&#34;</span><span class="p">:</span><span class="s2">&#34;b&#34;</span><span class="p">,</span> <span class="s2">&#34;alpha&#34;</span><span class="p">:</span><span class="mf">0.2</span><span class="p">,</span> <span class="s2">&#34;markeredgecolor&#34;</span><span class="p">:</span><span class="s2">&#34;k&#34;</span><span class="p">,</span> <span class="s2">&#34;label&#34;</span><span class="p">:</span><span class="s2">&#34;Observed Data&#34;</span><span class="p">,</span> <span class="s2">&#34;markersize&#34;</span><span class="p">:</span><span class="mi">10</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">           <span class="n">y_model_plot_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;alpha&#34;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span> <span class="s2">&#34;zorder&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&#34;color&#34;</span><span class="p">:</span><span class="s2">&#34;#00cc99&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">           <span class="n">y_model_mean_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;color&#34;</span><span class="p">:</span><span class="s2">&#34;red&#34;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">          <span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># plot the prediction interval</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_hdi</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">height</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trace</span><span class="o">.</span><span class="n">posterior_predictive</span><span class="p">[</span><span class="s2">&#34;y&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="n">hdi_prob</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">fill_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;alpha&#34;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></span></code></pre></div><p><img loading="lazy" src="/images/20240527_BayLinReg_PyMC/output_30_0.png" type="" alt="png"  /></p>
+<h3 id="making-predictions-on-unobserved-data-inputs">Making Predictions on <em>Unobserved Data Inputs</em></h3>
+<p>Now, how about the case when we want to make predictions on test data that we have not seen? That is, predict the weight of an individual whose height/weight we have not observed (measured)</p>
+<p>In other words, we have some test input data, i.e. some heights for which we want to predict the weights.</p>
+<p>Some references of where I learned how to do this:</p>
+<ol>
+<li>
+<p>In <a href="https://www.pymc.io/projects/examples/en/latest/fundamentals/data_container.html#applied-example-height-of-toddlers-as-a-function-of-age">this example</a> and <a href="https://www.pymc.io/projects/docs/en/stable/learn/core_notebooks/posterior_predictive.html">this other example</a> it says that we can generate out-of-sample predictions by using <code>pm.sample_posterior_predictive</code> and it shows an example of how to use the syntax.</p>
+</li>
+<li>
+<p>More recently, <a href="https://www.pymc-labs.com/blog-posts/out-of-model-predictions-with-pymc/">this demo blog post</a> clarifies how to make predictions on out-of-model samples.</p>
+</li>
+</ol>
+<p>Let&rsquo;s do just that now. First, we will define the test inputs we want to predict for, <code>pred_height</code>. Then, inside the model, we replace the data (which was defined as <code>MutableData</code>, with the new data we want to make predictions on. This is done as follows:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># set new data inputs:</span>
+</span></span><span class="line"><span class="cl"><span class="n">pred_height</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span> <span class="s1">&#39;new_data&#39;</span> <span class="p">])</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">with</span> <span class="n">blr_model</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">  <span class="n">pm</span><span class="o">.</span><span class="n">set_data</span><span class="p">({</span><span class="s1">&#39;height&#39;</span><span class="p">:</span> <span class="n">pred_height</span><span class="p">})</span>
+</span></span></code></pre></div><p>What this is effectively doing is telling <code>sample_posterior_predictive</code> that we need to make predictions on <code>height</code> which now happens to be different.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># define the out-of-sample predictors</span>
+</span></span><span class="line"><span class="cl"><span class="n">pred_height</span> <span class="o">=</span> <span class="p">[</span><span class="mf">158.0</span><span class="p">,</span> <span class="mf">185.5</span><span class="p">,</span> <span class="mf">165.2</span><span class="p">,</span> <span class="mf">178.0</span><span class="p">,</span>  <span class="mf">180.0</span><span class="p">,</span> <span class="mf">170.2</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="n">pred_height</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">with</span> <span class="n">blr_model</span><span class="p">:</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># set the new data we want to make predictions for</span>
+</span></span><span class="line"><span class="cl">    <span class="n">pm</span><span class="o">.</span><span class="n">set_data</span><span class="p">({</span><span class="s1">&#39;height&#39;</span><span class="p">:</span> <span class="n">pred_height</span><span class="p">})</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    <span class="n">post_pred</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">sample_posterior_predictive</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">trace</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">        <span class="n">predictions</span> <span class="o">=</span> <span class="kc">True</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span></code></pre></div><pre><code>Sampling: [y]
+
+
+[158.0, 185.5, 165.2, 178.0, 180.0, 170.2]
+</code></pre>
+<style>
+    /* Turns off some styling */
+    progress {
+        /* gets rid of default border in Firefox and Opera. */
+        border: none;
+        /* Needs to be in here for Safari polyfill so background images work as expected. */
+        background-size: auto;
+    }
+    progress:not([value]), progress:not([value])::-webkit-progress-bar {
+        background: repeating-linear-gradient(45deg, #7e7e7e, #7e7e7e 10px, #5c5c5c 10px, #5c5c5c 20px);
+    }
+    .progress-bar-interrupted, .progress-bar-interrupted::-webkit-progress-bar {
+        background: #F44336;
+    }
+</style>
+<div>
+  <progress value='4000' class='' max='4000' style='width:300px; height:20px; vertical-align: middle;'></progress>
+  100.00% [4000/4000 00:00&lt;00:00]
+</div>
+<p>What we have done above is create an inference data object called <code>post_pred</code>. This object contains the samples of the predictions on the new data. Specifically, it includes two containers: <code>predictions</code> and <code>predictions_constant_data</code>.</p>
+<p>The <code>predictions</code> container holds the predicted samples for our new heights. The <code>predictions_constant_data</code> holds the new heights we passed into the model.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">post_pred</span><span class="o">.</span><span class="n">to_dataframe</span><span class="p">()</span>
+</span></span></code></pre></div><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+<pre><code>.dataframe tbody tr th {
+    vertical-align: top;
+}
+
+.dataframe thead th {
+    text-align: right;
+}
+</code></pre>
+<p></style></p>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>chain</th>
+      <th>draw</th>
+      <th>(y[0], 0)</th>
+      <th>(y[1], 1)</th>
+      <th>(y[2], 2)</th>
+      <th>(y[3], 3)</th>
+      <th>(y[4], 4)</th>
+      <th>(y[5], 5)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>0</td>
+      <td>0</td>
+      <td>48.981930</td>
+      <td>62.971186</td>
+      <td>62.143385</td>
+      <td>59.300742</td>
+      <td>56.100237</td>
+      <td>54.329348</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>0</td>
+      <td>1</td>
+      <td>55.481192</td>
+      <td>65.132876</td>
+      <td>54.761877</td>
+      <td>61.312254</td>
+      <td>59.220124</td>
+      <td>51.817360</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0</td>
+      <td>2</td>
+      <td>49.471550</td>
+      <td>66.016910</td>
+      <td>60.646273</td>
+      <td>57.876344</td>
+      <td>56.203720</td>
+      <td>60.318281</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0</td>
+      <td>3</td>
+      <td>53.373737</td>
+      <td>66.593653</td>
+      <td>53.085799</td>
+      <td>63.437949</td>
+      <td>64.336626</td>
+      <td>45.372830</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0</td>
+      <td>4</td>
+      <td>52.981309</td>
+      <td>69.320059</td>
+      <td>51.590686</td>
+      <td>60.372046</td>
+      <td>62.210738</td>
+      <td>48.188656</td>
+    </tr>
+    <tr>
+      <th>...</th>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+      <td>...</td>
+    </tr>
+    <tr>
+      <th>3995</th>
+      <td>3</td>
+      <td>995</td>
+      <td>52.303814</td>
+      <td>61.931117</td>
+      <td>47.544216</td>
+      <td>60.824401</td>
+      <td>61.469545</td>
+      <td>62.353284</td>
+    </tr>
+    <tr>
+      <th>3996</th>
+      <td>3</td>
+      <td>996</td>
+      <td>56.032295</td>
+      <td>56.979040</td>
+      <td>54.584837</td>
+      <td>55.894216</td>
+      <td>65.943908</td>
+      <td>50.929285</td>
+    </tr>
+    <tr>
+      <th>3997</th>
+      <td>3</td>
+      <td>997</td>
+      <td>56.062352</td>
+      <td>50.889499</td>
+      <td>51.441003</td>
+      <td>57.841533</td>
+      <td>62.898654</td>
+      <td>52.749139</td>
+    </tr>
+    <tr>
+      <th>3998</th>
+      <td>3</td>
+      <td>998</td>
+      <td>48.228772</td>
+      <td>65.983383</td>
+      <td>52.381164</td>
+      <td>55.283946</td>
+      <td>65.468049</td>
+      <td>70.367514</td>
+    </tr>
+    <tr>
+      <th>3999</th>
+      <td>3</td>
+      <td>999</td>
+      <td>58.434184</td>
+      <td>54.739363</td>
+      <td>56.773260</td>
+      <td>53.128112</td>
+      <td>61.695469</td>
+      <td>54.874142</td>
+    </tr>
+  </tbody>
+</table>
+<p>4000 rows × 8 columns</p>
+</div>
+<p>We can visualize the posterior distributions of the predictions.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_posterior</span><span class="p">(</span><span class="n">post_pred</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="s2">&#34;predictions&#34;</span><span class="p">);</span>
+</span></span></code></pre></div><p><img loading="lazy" src="/images/20240527_BayLinReg_PyMC/output_36_1.png" type="" alt="png"  /></p>
+<p>We can obtain point estimates by taking the mean of each prediction distribution. This is done by taking the mean of the predictions over the <code>chain</code> and <code>draw</code> dimensions, as follows:</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="n">pred_weight</span> <span class="o">=</span> <span class="n">post_pred</span><span class="o">.</span><span class="n">predictions</span><span class="p">[</span><span class="s1">&#39;y&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">dim</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;chain&#39;</span><span class="p">,</span> <span class="s1">&#39;draw&#39;</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;Predicted weights: &#34;</span><span class="p">,</span> <span class="n">pred_weight</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+</span></span></code></pre></div><pre><code>Predicted weights:  [50.37415152 64.29241929 54.02070975 60.60276731 61.36759368 56.53983895]
+</code></pre>
+<p>Finally, we can visualize where the predictions fall by adding a scatter plot with the new ${x^<em>, y^</em>}$ data.</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="c1"># use the posterior to create regression line samples</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># trace.posterior[&#34;y_posterior&#34;] = trace.posterior[&#34;alpha&#34;] + trace.posterior[&#34;beta&#34;]*xr.DataArray(height)  # y_posterior = alpha + beta*x</span>
+</span></span><span class="line"><span class="cl"><span class="n">_</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="mi">7</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_lm</span><span class="p">(</span><span class="n">idata</span> <span class="o">=</span> <span class="n">trace</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">weight</span><span class="p">,</span> <span class="n">x</span> <span class="o">=</span> <span class="n">height</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">y_model</span><span class="o">=</span><span class="s2">&#34;y_posterior&#34;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">           <span class="n">y_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;color&#34;</span><span class="p">:</span><span class="s2">&#34;b&#34;</span><span class="p">,</span> <span class="s2">&#34;alpha&#34;</span><span class="p">:</span><span class="mf">0.2</span><span class="p">,</span> <span class="s2">&#34;markeredgecolor&#34;</span><span class="p">:</span><span class="s2">&#34;k&#34;</span><span class="p">,</span> <span class="s2">&#34;label&#34;</span><span class="p">:</span><span class="s2">&#34;Observed Data&#34;</span><span class="p">,</span> <span class="s2">&#34;markersize&#34;</span><span class="p">:</span><span class="mi">10</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">           <span class="n">y_model_plot_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;alpha&#34;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span> <span class="s2">&#34;zorder&#34;</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="s2">&#34;color&#34;</span><span class="p">:</span><span class="s2">&#34;#00cc99&#34;</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl">           <span class="n">y_model_mean_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;color&#34;</span><span class="p">:</span><span class="s2">&#34;red&#34;</span><span class="p">}</span>
+</span></span><span class="line"><span class="cl">          <span class="p">);</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># plot the prediction interval</span>
+</span></span><span class="line"><span class="cl"><span class="n">az</span><span class="o">.</span><span class="n">plot_hdi</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">height</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">trace</span><span class="o">.</span><span class="n">posterior_predictive</span><span class="p">[</span><span class="s2">&#34;y&#34;</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">    <span class="n">hdi_prob</span><span class="o">=</span><span class="mf">0.6</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">    <span class="n">fill_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">&#34;alpha&#34;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">},</span>
+</span></span><span class="line"><span class="cl"><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># add predicted weights to the plot</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">ax</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">pred_height</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">           <span class="n">pred_weight</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">           <span class="n">color</span> <span class="o">=</span> <span class="s1">&#39;blue&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">           <span class="n">label</span> <span class="o">=</span> <span class="s1">&#39;Predicted Weights&#39;</span><span class="p">,</span>
+</span></span><span class="line"><span class="cl">           <span class="n">zorder</span> <span class="o">=</span> <span class="mi">15</span>
+</span></span><span class="line"><span class="cl">           <span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">ax</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></span></code></pre></div><p><img loading="lazy" src="/images/20240527_BayLinReg_PyMC/output_40_0.png" type="" alt="png"  /></p>
+<h2 id="thank-you">Thank you!</h2>
+<p>This demo focused on a relatively simple task. Here, however, we focused more on what a Bayesian approach means in the context of a linear regression. Additionally, we focused on using <code>PyMC</code> for developing the model, visualizing the results and, just as importantly, on making predictions using those results.</p>
+<p>Victor</p>
+]]></content:encoded>
+    </item>
+    
+  </channel>
+</rss>

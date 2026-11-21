@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 300" role="img" aria-labelledby="title desc">
+  <title id="title">Jev Agent Router design</title>
+  <desc id="desc">A subagent spawn supplies a task title and brief to Jev. The selected tier maps to a configured model. The top Claude Code tier passes through an approval gate. The decision is written to a log.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0 0 9 4.5 0 9Z" fill="#555"/>
+    </marker>
+    <style>
+      text { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #222; }
+      .box { fill: #fff; stroke: #555; stroke-width: 2; rx: 12; }
+      .label { font-size: 18px; font-weight: 600; }
+      .small { font-size: 15px; fill: #444; }
+      .line { stroke: #555; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .gate { fill: #f7f7f7; stroke-dasharray: 6 4; }
+    </style>
+  </defs>
+  <rect width="1040" height="300" fill="#fff"/>
+  <rect x="18" y="105" width="145" height="78" class="box"/>
+  <text x="90" y="137" text-anchor="middle" class="label">Subagent</text>
+  <text x="90" y="160" text-anchor="middle" class="small">spawn</text>
+
+  <rect x="198" y="105" width="160" height="78" class="box"/>
+  <text x="278" y="137" text-anchor="middle" class="label">Task title</text>
+  <text x="278" y="160" text-anchor="middle" class="small">+ brief</text>
+
+  <rect x="395" y="105" width="125" height="78" class="box"/>
+  <text x="457" y="151" text-anchor="middle" class="label">Jev</text>
+
+  <rect x="557" y="105" width="158" height="78" class="box"/>
+  <text x="636" y="137" text-anchor="middle" class="label">Tier choice</text>
+  <text x="636" y="160" text-anchor="middle" class="small">from criteria</text>
+
+  <rect x="752" y="105" width="145" height="78" class="box"/>
+  <text x="824" y="137" text-anchor="middle" class="label">Model</text>
+  <text x="824" y="160" text-anchor="middle" class="small">from ladder</text>
+
+  <rect x="752" y="218" width="145" height="58" class="box gate"/>
+  <text x="824" y="243" text-anchor="middle" class="label">Approval</text>
+  <text x="824" y="263" text-anchor="middle" class="small">top Claude tier</text>
+
+  <rect x="922" y="105" width="100" height="78" class="box"/>
+  <text x="972" y="137" text-anchor="middle" class="label">Decision</text>
+  <text x="972" y="160" text-anchor="middle" class="small">log</text>
+
+  <path d="M163 144H192" class="line"/>
+  <path d="M358 144H389" class="line"/>
+  <path d="M520 144H551" class="line"/>
+  <path d="M715 144H746" class="line"/>
+  <path d="M897 144H916" class="line"/>
+  <path d="M824 183V212" class="line"/>
+  <path d="M897 247C930 247 906 193 916 176" class="line"/>
+</svg>
